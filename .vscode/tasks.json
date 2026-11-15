@@ -1,0 +1,12 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Validate Python compilation and tests",
+			"type": "shell",
+			"command": "python -m compileall -q app.py comparewise tests; Write-Output \"COMPILEALL_EXIT=$LASTEXITCODE\"; python -m unittest discover -s tests; Write-Output \"UNITTEST_EXIT=$LASTEXITCODE\"",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

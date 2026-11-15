@@ -1,0 +1,155 @@
+[
+  {
+    "scenario_id":"esports_laptop_007",
+    "shopper_profile":"Competitive esports player in online tournaments; plays Valorant, Rocket League, and Counter-Strike; occasionally streams and edits gameplay clips.",
+    "budget":1200,"currency":"USD",
+    "hard_requirements":"Consistently high frame rates; low input lag; fast-refresh screen; reliable cooling during long sessions; enough memory for games and streaming software.",
+    "priorities":["frame rate","low input lag","screen refresh rate","cooling","multitasking RAM"],
+    "candidates":[
+      {"name":"ASUS ROG Strix G16 (G615LM-DS94) Laptop","price":1951.09,"ram":"16GB DDR5-5600","cpu":"Intel Core Ultra 9 275HX","gpu":"NVIDIA GeForce RTX 5060; wattage not listed","storage":"Not listed","display":"WQXGA; 240Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"Tri-Fan Technology; end-to-end vapor chamber; sandwiched heatsink; Conductonaut Extreme liquid metal","retailer":"PCNation","price_vs_budget":"Above stated budget"}},
+      {"name":"Lenovo Legion Pro 5i (83F300BAUS) Laptop","price":1649.99,"ram":"16GB DDR5-5600","cpu":"Intel Core Ultra 7 251HX","gpu":"NVIDIA GeForce RTX 5060; wattage not listed","storage":"Not listed","display":"Refresh rate listed as 60Hz; confirm exact configuration","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"Legion Coldfront: Hyper; turbo-charged fans; vacuum-sealed heat pipes","retailer":"Lenovo","price_vs_budget":"Above stated budget"}}
+    ],
+    "preferred":"ASUS ROG Strix G16 (G615LM-DS94) Laptop",
+    "reason":"User selected ASUS for the listed 240Hz display, higher-tier CPU, and cooling design despite both options exceeding the stated budget; listing claims and performance are unverified."
+  },
+  {
+    "scenario_id":"budget_student_laptop_008",
+    "shopper_profile":"College freshman using a laptop mostly for word processing, web browsing, streaming, and video calls.",
+    "budget":550,"currency":"USD",
+    "hard_requirements":"At least 16GB RAM; dependable daily performance; comfortable keyboard; solid battery life; avoid overspending.",
+    "priorities":["budget","RAM","reliability","keyboard","battery life","video calls"],
+    "candidates":[
+      {"name":"Acer Aspire 5 (A515-58M) Laptop","price":499.99,"ram":"16GB LPDDR5","cpu":"Intel Core i5-1335U","gpu":"Intel Iris Xe Graphics","storage":"512GB NVMe SSD","display":"15.6-inch FHD IPS; 60Hz","battery_life":"Runtime not listed","weight":"3.88 lbs","attributes":{"keyboard":"Backlit"}},
+      {"name":"HP Pavilion 15 (eg3000) Laptop","price":529,"ram":"8GB DDR4","cpu":"Intel Core i5-1335U","gpu":"Intel Iris Xe Graphics","storage":"256GB SSD","display":"15.6-inch micro-edge FHD; 60Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"webcam":"720p"}},
+      {"name":"Lenovo IdeaPad Slim 3 (15ABR8) Laptop","price":449.99,"ram":"16GB DDR4","cpu":"AMD Ryzen 5 7530U","gpu":"AMD Radeon Graphics","storage":"512GB SSD","display":"15.6-inch FHD anti-glare; 60Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"audio":"Dolby Audio speakers","webcam":"1080p with privacy shutter"}}
+    ],
+    "preferred":"Lenovo IdeaPad Slim 3 (15ABR8) Laptop",
+    "reason":"User prefers it for meeting the stated RAM requirement while costing less; battery runtime is not listed and the user notes its DDR4 memory is older than Option A's LPDDR5."
+  },
+  {
+    "scenario_id":"programming_student_laptop_009",
+    "shopper_profile":"Computer science undergraduate running local IDEs, Docker containers, virtual machines, and many browser tabs simultaneously.",
+    "budget":1000,"currency":"USD",
+    "hard_requirements":"High multi-core CPU performance; 32GB RAM or upgradeable slots; fast SSD; crisp display for reading code.",
+    "priorities":["CPU performance","RAM","SSD storage","display clarity","multitasking"],
+    "candidates":[
+      {"name":"Lenovo ThinkPad E16 Gen 2 Laptop","price":949,"ram":"32GB DDR5-5600","cpu":"AMD Ryzen 7 7735HS","gpu":"Integrated AMD Radeon 680M","storage":"1TB PCIe Gen 4 SSD","display":"16-inch WUXGA (1920x1200), 16:10; 60Hz","battery_life":"Capacity/runtime not listed","weight":"Not listed","attributes":{"keyboard":"ThinkPad keyboard; user-listed preference rationale","numeric_keypad":true}},
+      {"name":"Dell Inspiron 14 Plus (7440) Laptop","price":999.99,"ram":"16GB LPDDR5X; upgradeability not listed","cpu":"Intel Core Ultra 7 155H","gpu":"Intel Arc Graphics","storage":"1TB SSD","display":"14-inch 2.2K (2240x1400); 90Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"chassis":"Aluminum"}}
+    ],
+    "preferred":"Lenovo ThinkPad E16 Gen 2 Laptop",
+    "reason":"User chose 32GB RAM and a 16-inch 16:10 display for containers, multitasking, and code; battery capacity and weight are unknown and its footprint is less portable."
+  },
+  {
+    "scenario_id":"video_creator_laptop_010",
+    "shopper_profile":"Freelance creator editing 4K timeline footage in DaVinci Resolve and batch-processing RAW photos in Lightroom.",
+    "budget":1600,"currency":"USD",
+    "hard_requirements":"Color-accurate display (100% sRGB or DCI-P3); dedicated GPU; strong CPU; at least 1TB fast storage.",
+    "priorities":["color accuracy","GPU acceleration","CPU","RAM","storage","refresh rate"],
+    "candidates":[
+      {"name":"ASUS ProArt P16 (H7606) Laptop","price":1599.99,"ram":"16GB LPDDR5X","cpu":"AMD Ryzen AI 9 HX 370","gpu":"NVIDIA GeForce RTX 4060; wattage not listed","storage":"1TB PCIe 4.0 SSD","display":"16-inch 4K OLED touchscreen; 100% DCI-P3; 60Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"dial":"Built-in ASUS DialPad","card_reader":"SD Express 7.0"}},
+      {"name":"Apple MacBook Pro 14-inch (M3) Laptop","price":1599,"ram":"8GB unified memory","cpu":"Apple M3, 8-core CPU","gpu":"Integrated Apple 10-core GPU","storage":"512GB SSD","display":"14.2-inch Liquid Retina XDR; 120Hz ProMotion; gamut coverage not listed","battery_life":"Not listed","weight":"Not listed","attributes":{"card_reader":"SDXC slot"}},
+      {"name":"Acer Swift X 14 (SFX14-72G) Laptop","price":1399.99,"ram":"32GB LPDDR5X","cpu":"Intel Core Ultra 7 155H","gpu":"NVIDIA GeForce RTX 4060; 50W","storage":"1TB SSD","display":"14.5-inch 2.8K OLED; 100% DCI-P3; 120Hz; Calman Verified","battery_life":"Not listed","weight":"Not listed","attributes":{"card_reader":"Not listed"}}
+    ],
+    "preferred":"Acer Swift X 14 (SFX14-72G) Laptop",
+    "reason":"User prefers the Acer for its stated 32GB RAM, 1TB SSD, color-accurate OLED and 120Hz display at a lower price; RTX 4060 wattage is listed as 50W and card-reader details are unavailable."
+  },
+  {
+    "scenario_id":"frequent_traveler_laptop_011",
+    "shopper_profile":"Management consultant flying weekly and working on airplanes, in airport lounges, and at client offices.",
+    "budget":1300,"currency":"USD",
+    "hard_requirements":"Under 3 lbs; all-day battery; bright anti-glare or high-resolution screen; USB-C charging.",
+    "priorities":["weight","battery life","screen brightness","screen resolution","charging"],
+    "candidates":[
+      {"name":"LG gram 14 (14Z90S) Laptop","price":1199.99,"ram":"16GB LPDDR5X","cpu":"Intel Core Ultra 7 155H","gpu":"Intel Arc Graphics","storage":"512GB NVMe SSD","display":"14-inch WUXGA (1920x1200) IPS; 60Hz; brightness not listed","battery_life":"72Wh capacity; runtime not listed","weight":"2.47 lbs","attributes":{"durability":"MIL-STD-810H claim","usb_c_charging":"Not listed"}},
+      {"name":"Apple MacBook Air 13-inch (M3) Laptop","price":1299,"ram":"16GB unified memory","cpu":"Apple M3","gpu":"Integrated Apple 10-core GPU","storage":"512GB SSD","display":"13.6-inch Liquid Retina; 500 nits; 60Hz","battery_life":"Up to 18 hours rated","weight":"2.7 lbs","attributes":{"design":"Fanless","charging":"USB-C charging; MagSafe also listed","ports":"No native HDMI or USB-A; dongle may be needed"}}
+    ],
+    "preferred":"Apple MacBook Air 13-inch (M3) Laptop",
+    "reason":"User selected MacBook Air for its stated 18-hour battery rating and 500-nit display, while noting it is heavier than LG gram and may need a dongle. The anti-glare preference and LG brightness comparison remain unverified."
+  },
+  {
+    "scenario_id":"value_gamer_laptop_012",
+    "shopper_profile":"Working adult playing modern AAA and multiplayer games at 1080p or 1440p after work on a strict budget.",
+    "budget":900,"currency":"USD",
+    "hard_requirements":"Price at or below $900; discrete gaming GPU (RTX 4060 preferred); 144Hz or faster display; decent thermal cooling.",
+    "priorities":["price cap","GPU performance","refresh rate","cooling","storage"],
+    "candidates":[
+      {"name":"Lenovo LOQ 15 (15ARP9) Laptop","price":849.99,"ram":"16GB DDR5-4800","cpu":"AMD Ryzen 7 7435HS","gpu":"NVIDIA GeForce RTX 4060; 105W TGP","storage":"512GB SSD","display":"15.6-inch FHD IPS; 144Hz; 100% sRGB; G-SYNC","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"Dual-fan hyperchamber cooling"}},
+      {"name":"MSI Thin 15 (B13VE) Laptop","price":799.99,"ram":"16GB DDR4-3200","cpu":"Intel Core i5-13420H","gpu":"NVIDIA GeForce RTX 4050; 45W TGP","storage":"512GB SSD","display":"15.6-inch FHD IPS-level; 144Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"Single fan; shared heat pipe"}},
+      {"name":"ASUS TUF Gaming A15 (FA507NV) Laptop","price":899.99,"ram":"16GB DDR5-4800","cpu":"AMD Ryzen 5 7535HS","gpu":"NVIDIA GeForce RTX 4060; 140W max TGP","storage":"512GB SSD","display":"15.6-inch FHD IPS; 144Hz; G-SYNC","battery_life":"90Wh capacity; runtime not listed","weight":"Not listed","attributes":{"cooling":"Arc Flow Fans; 5 heat pipes","fan_noise":"Exact dBA under load not listed"}}
+    ],
+    "preferred":"ASUS TUF Gaming A15 (FA507NV) Laptop",
+    "reason":"User selected ASUS because it is listed just under the price cap, with an RTX 4060 at 140W max TGP and five heat pipes; performance and thermal claims have not been independently verified."
+  }
+  ,{
+    "scenario_id":"family_laptop_013",
+    "shopper_profile":"Household of four sharing a home laptop for children's homework, parents' remote office tasks, family video calls, and evening movies.",
+    "budget":700,"currency":"USD",
+    "hard_requirements":"Large clear display; durable hinge and keyboard; good speakers and webcam; at least 16GB RAM.",
+    "priorities":["display size","durability","speakers","webcam","RAM","storage","price"],
+    "candidates":[
+      {"name":"HP Envy x360 15 (15-fe0000) Laptop","price":699.99,"ram":"16GB LPDDR5","cpu":"Intel Core i5-1335U","gpu":"Intel Iris Xe Graphics","storage":"512GB SSD","display":"15.6-inch FHD IPS touchscreen; 60Hz","battery_life":"Runtime not listed","weight":"Not listed","attributes":{"webcam":"5MP with privacy shutter","speakers":"Bang & Olufsen dual speakers"}},
+      {"name":"Dell Inspiron 16 (5635) Laptop","price":649.99,"ram":"16GB LPDDR4X","cpu":"AMD Ryzen 7 7730U","gpu":"AMD Radeon Graphics","storage":"1TB SSD","display":"16-inch FHD+ (1920x1200) anti-glare; 60Hz","battery_life":"Runtime not listed","weight":"Not listed","attributes":{"webcam":"1080p with mechanical privacy shutter","cover":"Aluminum top cover","touchscreen":"No"}},
+      {"name":"Lenovo IdeaPad 5i 2-in-1 (16IRU9) Laptop","price":729.99,"ram":"16GB LPDDR5X","cpu":"Intel Core 5 120U","gpu":"Intel Graphics","storage":"512GB SSD","display":"16-inch WUXGA IPS touchscreen; 60Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"speakers":"Dolby Audio","durability":"MIL-STD-810H tested claim","price_vs_budget":"Above stated budget"}}
+    ],
+    "preferred":"Dell Inspiron 16 (5635) Laptop",
+    "reason":"User prefers it for its under-budget price, 16-inch 16:10 anti-glare display, and 1TB storage for four family members' files; listing claims are unverified.",
+    "notes":"Speaker wattage and battery runtime are not listed; no touchscreen."
+  },
+  {
+    "scenario_id":"data_science_student_laptop_014",
+    "shopper_profile":"Graduate student running Jupyter notebooks, large Pandas datasets, local SQL databases, and entry-level machine-learning models.",
+    "budget":1250,"currency":"USD",
+    "hard_requirements":"At least 32GB RAM; strong multi-core CPU; NVIDIA GPU with CUDA support; 1TB SSD.",
+    "priorities":["RAM capacity","CPU performance","CUDA GPU","storage"],
+    "candidates":[
+      {"name":"ASUS Vivobook Pro 15 OLED (N6506) Laptop","price":1199.99,"ram":"24GB DDR5","cpu":"Intel Core Ultra 7 155H","gpu":"NVIDIA GeForce RTX 4060; wattage not listed","storage":"1TB SSD","display":"15.6-inch 3K OLED; 120Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"IceCool Pro thermal system","vram":"Not listed"}},
+      {"name":"Lenovo IdeaPad Pro 5i Gen 9 (16IMH9) Laptop","price":1249,"ram":"32GB LPDDR5X-7467","cpu":"Intel Core Ultra 9 185H","gpu":"NVIDIA GeForce RTX 4050; wattage and VRAM not listed","storage":"1TB PCIe Gen 4 SSD","display":"16-inch 2K IPS; 120Hz","battery_life":"84Wh capacity; runtime not listed","weight":"Not listed","attributes":{"cuda":"User states RTX 4050 supports CUDA; verify exact configuration"}}
+    ],
+    "preferred":"Lenovo IdeaPad Pro 5i Gen 9 (16IMH9) Laptop",
+    "reason":"User prefers Lenovo for meeting the 32GB memory requirement and pairing it with a Core Ultra 9 CPU and stated NVIDIA CUDA GPU; claims are unverified.",
+    "notes":"GPU TGP/VRAM are not listed; RTX 4050 has fewer CUDA cores than the competing RTX 4060."
+  },
+  {
+    "scenario_id":"small_business_laptop_015",
+    "shopper_profile":"Independent retail consultant traveling locally to client meetings, using accounting, spreadsheets, CRM tools, and frequent video calls.",
+    "budget":1150,"currency":"USD",
+    "hard_requirements":"Professional appearance; around 3 lbs; strong battery life; reliable webcam/microphones; built-in HDMI and USB ports.",
+    "priorities":["price","portability","battery","webcam","ports","storage","Windows compatibility"],
+    "candidates":[
+      {"name":"ASUS Zenbook 14 OLED (UX3405) Laptop","price":1049.99,"ram":"16GB LPDDR5X","cpu":"Intel Core Ultra 7 155H","gpu":"Intel Arc Graphics","storage":"1TB SSD","display":"14-inch FHD+ OLED; 120Hz","battery_life":"75Wh capacity; rated hours not listed","weight":"2.82 lbs","attributes":{"ports":"HDMI 2.1; Thunderbolt 4; USB-A","webcam":"FHD IR camera","keyboard":"Key travel not listed"}},
+      {"name":"Microsoft Surface Laptop 7 (13.8-inch) Laptop","price":1199.99,"ram":"16GB LPDDR5X","cpu":"Qualcomm Snapdragon X Plus","gpu":"Qualcomm Adreno GPU","storage":"512GB SSD","display":"13.8-inch PixelSense Flow touchscreen; 120Hz","battery_life":"Not listed","weight":"2.96 lbs","attributes":{"webcam":"1080p Studio Camera","ports":"USB-C and USB-A; HDMI not listed","software":"User notes possible legacy Windows accounting plugin compatibility concern"}}
+    ],
+    "preferred":"ASUS Zenbook 14 OLED (UX3405) Laptop",
+    "reason":"User prefers ASUS for its price below budget, built-in HDMI, 1TB SSD, and avoidance of a possible ARM compatibility issue; those listing and compatibility claims are unverified.",
+    "notes":"Rated battery hours and keyboard key travel are not listed."
+  },
+  {
+    "scenario_id":"convertible_student_laptop_016",
+    "shopper_profile":"Pre-med undergraduate annotating lecture slides, sketching anatomy diagrams with a stylus, reading digital textbooks, and typing lab reports.",
+    "budget":850,"currency":"USD",
+    "hard_requirements":"Convertible 360-degree hinge; touchscreen and active stylus support; manageable tablet-mode weight; all-day battery.",
+    "priorities":["convertible design","stylus","touchscreen","weight","display","battery"],
+    "candidates":[
+      {"name":"Lenovo Yoga 7i 2-in-1 (14IML9) Laptop","price":799.99,"ram":"16GB LPDDR5X","cpu":"Intel Core Ultra 5 125U","gpu":"Intel Graphics","storage":"512GB SSD","display":"14-inch WUXGA (1920x1200) glossy IPS touchscreen; 60Hz","battery_life":"Not listed","weight":"3.57 lbs","attributes":{"hinge":"360-degree convertible","stylus":"Active stylus support not listed","features":"Dolby Vision; fingerprint reader"}},
+      {"name":"HP Pavilion x360 14 (14-ek1000) Laptop","price":749.99,"ram":"16GB DDR4","cpu":"Intel Core i5-1335U","gpu":"Intel Iris Xe Graphics","storage":"512GB SSD","display":"14-inch FHD IPS touchscreen; 60Hz","battery_life":"Not listed","weight":"3.35 lbs","attributes":{"hinge":"360-degree convertible","stylus":"Active stylus support not listed","webcam":"5MP"}},
+      {"name":"Samsung Galaxy Book4 360 (15.6-inch) Laptop","price":849.99,"ram":"16GB LPDDR5","cpu":"Intel Core 7 150U","gpu":"Intel Graphics","storage":"512GB SSD","display":"15.6-inch FHD AMOLED touchscreen; 60Hz","battery_life":"Capacity/runtime not listed","weight":"3.22 lbs","attributes":{"hinge":"360-degree convertible","stylus":"S Pen compatibility; included status not listed"}}
+    ],
+    "preferred":"Samsung Galaxy Book4 360 (15.6-inch) Laptop",
+    "reason":"User prefers Samsung for its listed 3.22-lb weight and AMOLED touchscreen at the budget ceiling; listing claims are unverified.",
+    "notes":"Whether the S Pen is included and battery capacity are not listed."
+  },
+  {
+    "scenario_id":"quiet_work_gamer_laptop_017",
+    "shopper_profile":"Apartment dweller gaming at night in a shared living room near a partner who is reading or working; wants smooth 1080p gaming without excessive fan noise or heat.",
+    "budget":1200,"currency":"USD",
+    "hard_requirements":"Discrete GPU for modern games; price at or below $1200; quiet fan profile and effective cooling.",
+    "priorities":["acoustic output","cooling","GPU performance","price"],
+    "candidates":[
+      {"name":"Lenovo Legion Slim 5 Gen 9 (16AHP9) Laptop","price":1149.99,"ram":"16GB DDR5-5600","cpu":"AMD Ryzen 7 8845HS","gpu":"NVIDIA GeForce RTX 4060; 140W max TGP","storage":"1TB SSD","display":"16-inch WQXGA IPS; 165Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"Legion Coldfront: Hyper; Quiet Mode profile","noise":"Exact dBA in Quiet/Balanced modes not listed","temperature":"Keyboard surface temperature under load not listed"}},
+      {"name":"Acer Nitro V 15 (ANV15-51) Laptop","price":899.99,"ram":"16GB DDR5","cpu":"Intel Core i7-13620H","gpu":"NVIDIA GeForce RTX 4060; 75W TGP","storage":"512GB SSD","display":"15.6-inch FHD IPS; 144Hz","battery_life":"Not listed","weight":"Not listed","attributes":{"cooling":"Dual-fan rear-exhaust cooling","noise":"Exact dBA not listed"}}
+    ],
+    "preferred":"Lenovo Legion Slim 5 Gen 9 (16AHP9) Laptop",
+    "reason":"User prefers Lenovo for its stated Quiet Mode, larger chassis, and higher thermal headroom within budget; noise and temperature performance are not independently measured.",
+    "notes":"Exact dBA measurements and keyboard temperatures under load are not listed."
+  }
+]
