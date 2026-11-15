@@ -70,7 +70,6 @@ class ShoppingEndToEndTests(unittest.TestCase):
         # affect the test. Patches remain active across Streamlit reruns.
         self.enterContext(patch.dict("os.environ", {
             "SERPAPI_API_KEY": API_KEY, "SERPAPI_KEY": "", "SERAPI_KEY": "",
-            "GEMINI_API_KEY": "",
         }))
         self.enterContext(patch("dotenv.load_dotenv", return_value=False))
         self.enterContext(patch("comparewise.sources.dotenv_values", return_value={}))

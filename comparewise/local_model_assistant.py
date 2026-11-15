@@ -31,7 +31,7 @@ OLLAMA_URL = "http://127.0.0.1:11434/api/chat"
 REQUEST_TIMEOUT = (5, 120)
 MAX_OUTPUT_CHARS = 12000
 _MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)?(?::[A-Za-z0-9][A-Za-z0-9._-]*)?\Z", re.ASCII)
-_SECRET_NAMES = ("SERPAPI_API_KEY", "SERPAPI_KEY", "SERAPI_KEY", "GEMINI_API_KEY")
+_SECRET_NAMES = ("SERPAPI_API_KEY", "SERPAPI_KEY", "SERAPI_KEY")
 _SYSTEM_INSTRUCTION = (
     "You are a shopping comparison assistant. Give a clear, actionable recommendation "
     "when the provided evidence supports one, and explain an option choice using "

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import hashlib
 import itertools
 import math
@@ -14,9 +13,7 @@ from dotenv import load_dotenv
 from comparewise.shopping_comparison import (
     PRIORITIES, SPEC_FOCUSES, comparison_compatibility, comparison_rows, recommend_many,
 )
-from comparewise.local_model_assistant import DEFAULT_MODEL as LOCAL_DEFAULT_MODEL, request_model_answer as request_local_model_answer
-from comparewise.model_assistant import ModelAssistantError
-from comparewise.shopping_model_assistant import request_model_answer as request_gemini_answer
+from comparewise.shopping_assistant import answer_shopping_question
 from comparewise.sources import SerpApiError, _http_url, _retailer_url, _shopping_url, search_shopping_products
 from scripts.train_pilot_model import recommend_candidates as recommend_pilot_candidates, supports_deality_match_products
 
@@ -49,12 +46,12 @@ h1,h2,h3 {color:#f4f6ff;letter-spacing:-.035em;}
 .recommendation,.notice {padding:1.05rem 1.2rem;border:1px solid rgba(151,173,255,.2);border-left:3px solid var(--cyan);border-radius:16px;background:linear-gradient(120deg,rgba(70,102,181,.18),rgba(76,51,119,.18)),rgba(17,24,39,.9);color:#edf1ff;}
 .recommendation h3 {margin:.45rem 0;background:linear-gradient(100deg,#9ac8ff,#c09dff);background-clip:text;-webkit-background-clip:text;color:transparent;}
 .notice-error {border-left-color:#ff9cbd;}
-.stButton > button,.stFormSubmitButton > button,[data-testid="stPopoverButton"] {min-height:2.6rem;border-radius:12px;border:1px solid rgba(151,173,255,.28) !important;background:rgba(30,40,64,.78) !important;color:#f4f6ff !important;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;}
-.stButton > button:hover,.stFormSubmitButton > button:hover,[data-testid="stPopoverButton"]:hover {transform:translateY(-1px);border-color:rgba(137,185,255,.7) !important;box-shadow:0 8px 26px rgba(94,117,220,.18);}
+.stButton > button,.stFormSubmitButton > button {min-height:2.6rem;border-radius:12px;border:1px solid rgba(151,173,255,.28) !important;background:rgba(30,40,64,.78) !important;color:#f4f6ff !important;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;}
+.stButton > button:hover,.stFormSubmitButton > button:hover {transform:translateY(-1px);border-color:rgba(137,185,255,.7) !important;box-shadow:0 8px 26px rgba(94,117,220,.18);}
 .stButton > button[data-testid="stBaseButton-primary"],.stFormSubmitButton > button[data-testid="stBaseButton-primary"] {background:linear-gradient(105deg,#8ecaff,#b59aff 58%,#e8a9e3) !important;border:0 !important;color:#101327 !important;box-shadow:0 8px 24px rgba(126,149,255,.24);}
 .stButton > button[data-testid="stBaseButton-primary"] p,.stFormSubmitButton > button[data-testid="stBaseButton-primary"] p {color:#101327 !important;font-weight:700;}
 input,textarea,[data-baseweb="select"] > div {background:#131a2a !important;color:#f4f6ff !important;border-color:#384360 !important;}
-[data-testid="stExpander"] details,[data-testid="stPopoverBody"],[data-testid="stChatMessage"] {background:#111827 !important;border-color:#29344c !important;}
+[data-testid="stExpander"] details,[data-testid="stChatMessage"] {background:#111827 !important;border-color:#29344c !important;}
 [data-testid="stVerticalBlockBorderWrapper"] > div {border-color:rgba(151,173,255,.2) !important;border-radius:16px !important;}
 [data-testid="stDataFrame"] {border:1px solid rgba(151,173,255,.18);border-radius:14px;overflow:hidden;}
 .footer {margin-top:2rem;padding-top:1rem;border-top:1px solid rgba(151,173,255,.14);color:#94a1ba;font-size:.82rem;text-align:center;}
@@ -67,7 +64,7 @@ for key, default in (
     *((f"results_{index}", []) for index in range(1, 6)),
     *((f"manual_{index}", None) for index in range(1, 6)),
     ("shopping_chat", []),
-    ("current_pair", None), ("ai_opinion", None), ("ml_opinion", None),
+    ("current_pair", None), ("ml_opinion", None),
 ):
     if key not in st.session_state:
         st.session_state[key] = default
@@ -80,7 +77,6 @@ def _notice(message: str, kind: str = "info") -> None:
 def _invalidate() -> None:
     st.session_state.comparison = None
     st.session_state.shopping_chat = []
-    st.session_state.ai_opinion = None
     st.session_state.ml_opinion = None
 
 
@@ -99,7 +95,6 @@ def _clear() -> None:
         st.session_state.pop(f"input_mode_{index}", None)
     for key in (*(f"selection_{index}" for index in range(1, 6)), "pair_confirmation", "group_confirmation"):
         st.session_state.pop(key, None)
-    st.session_state.pop("gemini_consent", None)
     st.session_state.current_pair = None
 
 
@@ -178,46 +173,66 @@ def render_home() -> None:
     st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
 
 
-def render_assistant(priority: str, provider: str, gemini_consent: bool) -> None:
+def _deterministic_answer(question: str, products: list[dict], priority: str,
+                          history: list[dict], confirmed: bool) -> str:
+    if len(products) == 2:
+        return answer_shopping_question(question, products, priority, history, confirmed=confirmed)
+
+    requested_priority = priority
+    text = question.casefold()
+    if any(term in text for term in ("cheaper", "cheapest", "lowest price", "price only")):
+        requested_priority = "Lower price"
+    elif "rating" in text:
+        requested_priority = "Higher customer rating"
+    elif "review" in text:
+        requested_priority = "More customer reviews"
+
+    result = recommend_many(products, requested_priority, confirmed=confirmed)
+    snapshots = []
+    for index, product in enumerate(products, 1):
+        snapshots.append(
+            f"Option {index}, {product.get('name') or 'Unnamed listing'}: "
+            f"price {product.get('price_display') or 'not listed'}, "
+            f"rating {product.get('rating') if product.get('rating') is not None else 'not listed'}, "
+            f"reviews {product.get('review_count') if product.get('review_count') is not None else 'not listed'}."
+        )
+    winner = result["winner_index"]
+    if winner is None:
+        outcome = f"No supported winner for {requested_priority.lower()}. {result['explanation']}"
+    else:
+        name = products[winner].get("name") or f"Option {winner + 1}"
+        outcome = f"For {requested_priority.lower()}, {name} ranks highest in this comparison. {result['explanation']}"
+    return outcome + " Listing data: " + " ".join(snapshots)
+
+
+def render_assistant(priority: str) -> None:
     comparison = st.session_state.comparison
     products = comparison["products"] if comparison else []
     confirmed = bool(comparison and comparison["confirmed"])
-    with st.popover("✦ Ask Deality AI", width="stretch"):
-        st.markdown("### Deality AI assistant")
-        st.caption("Ask about your budget, use case, or must-have features. Your recent questions inform follow-ups.")
-        with st.form("shopping_assistant_chat", clear_on_submit=True):
-            prompt = st.text_input("Your requirements", placeholder="e.g. Which is better under $100?")
-            send = st.form_submit_button("Ask Deality AI", type="primary", width="stretch")
-        if send and prompt.strip():
-            question = prompt.strip()
-            if not 2 <= len(products) <= 5:
-                _notice("Compare two listings first, or select a complete set of products.", "error")
-            elif provider == "Google Gemini" and not gemini_consent:
-                _notice("Confirm the Gemini data-sharing notice before sending this request.", "error")
-            else:
-                try:
-                    with st.spinner("Thinking about your comparison…"):
-                        if provider == "Google Gemini":
-                            answer = request_gemini_answer(question, products, priority, st.session_state.shopping_chat)
-                        else:
-                            answer = request_local_model_answer(question, products, priority, st.session_state.shopping_chat, confirmed=confirmed)
-                    st.session_state.shopping_chat.extend([{"role": "user", "content": question}, {"role": "assistant", "content": answer}])
-                    st.session_state.ai_opinion = None
-                    st.session_state.ml_opinion = None
-                    st.rerun()
-                except (ModelAssistantError, ValueError) as error:
-                    _notice(str(error), "error")
-        with st.container(height=220, border=True):
-            if not st.session_state.shopping_chat:
-                with st.chat_message("assistant"):
-                    st.write("Tell me what matters to you. I can use the current listing details to help.")
-            for message in st.session_state.shopping_chat:
-                with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
-        if provider == "Google Gemini":
-            st.caption(f"Google Gemini · {os.environ.get('GEMINI_MODEL', 'gemini-3.8-flash')} · Listing details and chat are sent to Google after consent. Answers may be wrong.")
+    st.subheader("Ask Deality AI")
+    st.caption("Answers use only the selected listings and comparison rules; no external AI service is called.")
+    with st.form("shopping_assistant_chat", clear_on_submit=True):
+        prompt = st.text_input("Your requirements", placeholder="e.g. Which is cheaper, or what fits my budget?")
+        send = st.form_submit_button("Ask Deality AI", type="primary", width="stretch")
+    if send:
+        question = prompt.strip()
+        if not question:
+            _notice("Enter a question about the selected listings.", "error")
+        elif not 2 <= len(products) <= 5:
+            _notice("Compare the selected products first.", "error")
         else:
-            st.caption(f"Local Ollama model · {os.environ.get('OLLAMA_MODEL', LOCAL_DEFAULT_MODEL)} · No AI API key. Answers may be wrong; verify important claims.")
+            answer = _deterministic_answer(question, products, priority,
+                                           st.session_state.shopping_chat, confirmed)
+            st.session_state.shopping_chat.extend([
+                {"role": "user", "content": question},
+                {"role": "assistant", "content": answer},
+            ])
+    with st.container(height=220, border=True):
+        if not st.session_state.shopping_chat:
+            st.caption("Ask about price, ratings, specifications, or the current recommendation.")
+        for message in st.session_state.shopping_chat:
+            with st.chat_message(message["role"]):
+                st.text(message["content"])
 
 
 def render_comparison() -> None:
@@ -232,18 +247,6 @@ def render_comparison() -> None:
     st.caption("Compare 2–5 products from different retailers. Search each option independently or enter listing details manually.")
     priority = st.selectbox("Recommendation priority", [*PRIORITIES, *SPEC_FOCUSES], key="shopping_priority")
     product_count = st.selectbox("Products to compare", [2, 3, 4, 5], key="product_count")
-    providers = ["Local Ollama"]
-    if os.environ.get("GEMINI_API_KEY", "").strip():
-        providers.append("Google Gemini")
-    provider = st.selectbox("AI assistant", providers, key="assistant_provider")
-    gemini_consent = False
-    if provider == "Google Gemini":
-        gemini_consent = st.checkbox(
-            "For this session, I agree to send selected listing details, my question, priority, and recent chat to Google Gemini when I ask for an answer.",
-            key="gemini_consent",
-        )
-        st.caption(f"Gemini model: {os.environ.get('GEMINI_MODEL', 'gemini-3.8-flash')}. Requests happen only when you submit a chat question or ask for an opinion. Check Google’s model pricing and data terms; limits and charges may apply.")
-
     columns = st.columns(2)
     selected_by_slot = {}
     for number in range(1, product_count + 1):
@@ -344,8 +347,8 @@ def render_comparison() -> None:
 
     selected = [selected_by_slot[index] for index in range(1, product_count + 1) if index in selected_by_slot]
 
-    # Invalidate before rendering the assistant or comparison on a selection rerun.
-    pair = tuple(_identity(p) or repr(p) for p in selected) if len(selected) == 2 else None
+    # Invalidate the previous result whenever any selected option changes.
+    pair = tuple(_identity(p) or repr(p) for p in selected) if selected else None
     if pair != st.session_state.current_pair:
         _invalidate()
         st.session_state.current_pair = pair
@@ -377,15 +380,9 @@ def render_comparison() -> None:
             else:
                 st.session_state.comparison = {"products": list(selected), "confirmed": confirmed, "priority": priority}
 
-    st.caption("Privacy: search phrases go to SerpApi. The selected AI provider receives listing details and chat only when you submit a request. Comparisons and chat remain in this Streamlit session; provider data policies apply.")
-    st.button("Clear searches, comparison and chat", on_click=_clear)
-    render_assistant(priority, provider, gemini_consent)
-    with st.expander("How the recommendation and assistant work"):
-        st.write("The primary AI recommendation is generated by the selected language model from the selected listings, priority, and recent chat. Deality Match is a separate experimental ML option for same-category products represented in its user-provided examples, including laptops, phones, apparel, headphones, wearables, and home/travel gear. Coverage varies greatly by category, so its recommendations are not reliable performance estimates. The deterministic calculation below is a transparent baseline. Comparable baseline prices require known matching currencies; review count is not a quality measure; specifications are not numerically scored.")
-        st.write("Choose local Ollama for inference through an installed local model, or Google Gemini for hosted answers after consent. SerpApi still requires a separate key for live product search. Listings and offers are not independently verified.")
-
     comparison = st.session_state.comparison
     if not comparison:
+        st.button("Clear searches, comparison and chat", on_click=_clear)
         _notice("Search for both products, select distinct results, and compare them.")
         st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
         return
@@ -393,41 +390,20 @@ def render_comparison() -> None:
     confirmed = comparison["confirmed"]
     comparison["priority"] = priority
     st.markdown('<div class="eyebrow">YOUR COMPARISON</div>', unsafe_allow_html=True)
-    ai_column, ml_column = st.columns(2)
+    summary = recommend_many(products, priority, confirmed=confirmed)
+    winner = summary["winner_index"]
+    title = products[winner].get("name", "Selected option") if winner is not None else "No winner established"
+    st.markdown(f'<div class="recommendation"><div class="eyebrow">DEALITY AI · {escape(priority.upper())}</div><h3>{escape(str(title))}</h3><p>{escape(summary["explanation"])}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
+    st.caption("Based only on returned listing details. Missing evidence may mean no winner.")
+    ml_column = st.container()
     ml_supported = supports_deality_match_products(products)
-    with ai_column:
-        st.subheader("AI recommendation")
-        st.caption("Generated by your selected language model. It may be wrong; verify important details with the retailer.")
-        ai_requested = st.button("Get AI recommendation", type="primary")
     with ml_column:
         st.subheader("Deality Match")
-        st.caption("Experimental ML alternative · supported categories only · not a reliable or verified ranking.")
+        st.caption("Experimental ML option for supported categories.")
         ml_requested = st.button("Try Deality Match", disabled=not ml_supported)
         if not ml_supported:
             st.caption("This model needs 2–5 distinct options from one category represented in its training examples.")
 
-    if ai_requested:
-        try:
-            if provider == "Google Gemini" and not gemini_consent:
-                raise ValueError("Confirm the Gemini data-sharing notice before sending this request.")
-            with st.spinner("Reviewing the listing evidence…"):
-                question = (
-                    "Recommend one of these listings for the selected priority. Use the shopper's "
-                    "needs and constraints from the recent conversation if provided. Compare the "
-                    "available evidence across all options, explain the trade-offs, call out missing "
-                    "or unverified details, and say no winner if the evidence is insufficient. "
-                    "Do not infer benchmarks or capabilities from product names alone."
-                )
-                if provider == "Google Gemini":
-                    answer = request_gemini_answer(question, products, priority, st.session_state.shopping_chat)
-                    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
-                else:
-                    answer = request_local_model_answer(question, products, priority, st.session_state.shopping_chat, confirmed=confirmed)
-                    model_name = os.environ.get("OLLAMA_MODEL", LOCAL_DEFAULT_MODEL)
-            st.session_state.ai_opinion = {"content": answer, "priority": priority, "model": model_name, "provider": provider}
-        except (ModelAssistantError, ValueError) as error:
-            st.session_state.ai_opinion = None
-            _notice(str(error), "error")
     if ml_requested:
         try:
             with st.spinner("Deality Match is ranking these product listings…"):
@@ -436,15 +412,6 @@ def render_comparison() -> None:
         except (OSError, ValueError) as error:
             st.session_state.ml_opinion = None
             _notice(str(error), "error")
-
-    with ai_column:
-        opinion = st.session_state.ai_opinion
-        if opinion and opinion["priority"] == priority:
-            st.markdown(f"**{opinion['provider']} · {opinion['model']}**")
-            st.write(opinion["content"])
-            st.caption("Generated analysis, not a verified fact check or guarantee. Check the listing and current offer.")
-        elif opinion:
-            st.caption("Your priority changed. Request a new AI recommendation for the current priority.")
 
     with ml_column:
         ml_opinion = st.session_state.ml_opinion
@@ -459,12 +426,6 @@ def render_comparison() -> None:
         elif ml_opinion:
             st.caption("Your priority changed. Try Deality Match again for the current priority.")
 
-    with st.expander("Transparent rule-based baseline (not the AI recommendation)"):
-        st.write("This deterministic score is shown only as a simple comparison baseline. The primary AI recommendation uses your selected language model; Deality Match is a separate experimental ML alternative for supported same-category listings.")
-        summary = recommend_many(products, priority, confirmed=confirmed)
-        winner = summary["winner_index"]
-        title = products[winner].get("name", "Selected option") if winner is not None else "No winner established"
-        st.markdown(f'<div class="recommendation"><div class="eyebrow">RULE-BASED BASELINE · {escape(priority.upper())}</div><h3>{escape(str(title))}</h3><p>{escape(summary["explanation"])}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
     rows = comparison_rows(products, confirmed=confirmed)
     if priority in SPEC_FOCUSES:
         focused = [row for row in rows if any(word in " ".join(row.values()).casefold() for word in SPEC_FOCUSES[priority])]
@@ -478,6 +439,9 @@ def render_comparison() -> None:
     st.subheader("Product details & specifications")
     st.caption("Details are shown as returned in search results; missing information is marked Not listed. Verify prices and availability with the retailer.")
     st.dataframe(rows, hide_index=True, width="stretch", height=520)
+    st.caption("Search phrases go to SerpApi. Comparisons and chat stay in this Streamlit session. Listing details are not independently verified.")
+    st.button("Clear searches, comparison and chat", on_click=_clear)
+    render_assistant(priority)
     st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
 
 

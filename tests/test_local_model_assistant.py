@@ -109,7 +109,7 @@ class LocalModelAssistantTests(unittest.TestCase):
         self.assertNotIn("a.test", listing["features"][0])
 
     def test_redacts_known_credentials_in_inputs_output_and_boundary(self):
-        with patch.dict("os.environ", {"GEMINI_API_KEY": "secret-key", "SERPAPI_KEY": "other-secret"}):
+        with patch.dict("os.environ", {"SERPAPI_API_KEY": "secret-key", "SERPAPI_KEY": "other-secret"}):
             self.products[0]["description"] = "secret-key https://host.test other-secret"
             self.products[0]["features"] = ["x" * (assistant.MAX_FIELD_CHARS - 4) + "secret-key"]
             self.products[0]["specifications"] = {"secret-key": "other-secret"}

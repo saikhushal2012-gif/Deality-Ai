@@ -12,7 +12,6 @@ class ModelAssistantError(Exception):
     """A safe, user-facing model configuration or request failure."""
 
 
-DEFAULT_MODEL = "gemini-3.8-flash"
 MAX_QUESTION_CHARS = 2000
 MAX_PRIORITY_CHARS = 200
 MAX_HISTORY_MESSAGES = 8
@@ -22,7 +21,6 @@ MAX_FEATURES = 20
 MAX_SPECIFICATIONS = 30
 REQUEST_TIMEOUT = (10, 30)
 
-_MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z", re.ASCII)
 _URL = re.compile(r"(?:https?://|www\.)[^\s<>\"']+|data:[^\s<>\"']+", re.IGNORECASE)
 
 
