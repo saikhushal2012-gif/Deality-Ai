@@ -15,7 +15,6 @@ from comparewise.shopping_comparison import (
 )
 from comparewise.shopping_assistant import answer_shopping_question
 from comparewise.sources import SerpApiError, _http_url, _retailer_url, _shopping_url, search_shopping_products
-from scripts.train_pilot_model import recommend_candidates as recommend_pilot_candidates, supports_deality_match_products
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 st.set_page_config(page_title="Deality AI", page_icon="✦", layout="wide", initial_sidebar_state="collapsed")
@@ -64,7 +63,7 @@ for key, default in (
     *((f"results_{index}", []) for index in range(1, 6)),
     *((f"manual_{index}", None) for index in range(1, 6)),
     ("shopping_chat", []),
-    ("current_pair", None), ("ml_opinion", None),
+    ("current_pair", None),
 ):
     if key not in st.session_state:
         st.session_state[key] = default
@@ -77,7 +76,6 @@ def _notice(message: str, kind: str = "info") -> None:
 def _invalidate() -> None:
     st.session_state.comparison = None
     st.session_state.shopping_chat = []
-    st.session_state.ml_opinion = None
 
 
 def _clear() -> None:
@@ -173,38 +171,6 @@ def render_home() -> None:
     st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
 
 
-def _deterministic_answer(question: str, products: list[dict], priority: str,
-                          history: list[dict], confirmed: bool) -> str:
-    if len(products) == 2:
-        return answer_shopping_question(question, products, priority, history, confirmed=confirmed)
-
-    requested_priority = priority
-    text = question.casefold()
-    if any(term in text for term in ("cheaper", "cheapest", "lowest price", "price only")):
-        requested_priority = "Lower price"
-    elif "rating" in text:
-        requested_priority = "Higher customer rating"
-    elif "review" in text:
-        requested_priority = "More customer reviews"
-
-    result = recommend_many(products, requested_priority, confirmed=confirmed)
-    snapshots = []
-    for index, product in enumerate(products, 1):
-        snapshots.append(
-            f"Option {index}, {product.get('name') or 'Unnamed listing'}: "
-            f"price {product.get('price_display') or 'not listed'}, "
-            f"rating {product.get('rating') if product.get('rating') is not None else 'not listed'}, "
-            f"reviews {product.get('review_count') if product.get('review_count') is not None else 'not listed'}."
-        )
-    winner = result["winner_index"]
-    if winner is None:
-        outcome = f"No supported winner for {requested_priority.lower()}. {result['explanation']}"
-    else:
-        name = products[winner].get("name") or f"Option {winner + 1}"
-        outcome = f"For {requested_priority.lower()}, {name} ranks highest in this comparison. {result['explanation']}"
-    return outcome + " Listing data: " + " ".join(snapshots)
-
-
 def render_assistant(priority: str) -> None:
     comparison = st.session_state.comparison
     products = comparison["products"] if comparison else []
@@ -221,8 +187,18 @@ def render_assistant(priority: str) -> None:
         elif not 2 <= len(products) <= 5:
             _notice("Compare the selected products first.", "error")
         else:
-            answer = _deterministic_answer(question, products, priority,
-                                           st.session_state.shopping_chat, confirmed)
+            if len(products) == 2:
+                answer = answer_shopping_question(question, products, priority,
+                                                  st.session_state.shopping_chat, confirmed=confirmed)
+            else:
+                result = recommend_many(products, priority, confirmed=confirmed)
+                winner = result["winner_index"]
+                if winner is None:
+                    answer = f"No supported winner for {priority.lower()}. {result['explanation']}"
+                else:
+                    name = products[winner].get("name") or f"Option {winner + 1}"
+                    answer = f"For {priority.lower()}, {name} ranks highest. {result['explanation']}"
+                answer += " Listing details and statistics appear in the comparison below."
             st.session_state.shopping_chat.extend([
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": answer},
@@ -247,6 +223,7 @@ def render_comparison() -> None:
     st.caption("Compare 2–5 products from different retailers. Search each option independently or enter listing details manually.")
     priority = st.selectbox("Recommendation priority", [*PRIORITIES, *SPEC_FOCUSES], key="shopping_priority")
     product_count = st.selectbox("Products to compare", [2, 3, 4, 5], key="product_count")
+    result_area = st.empty()
     columns = st.columns(2)
     selected_by_slot = {}
     for number in range(1, product_count + 1):
@@ -389,43 +366,14 @@ def render_comparison() -> None:
     products = comparison["products"]
     confirmed = comparison["confirmed"]
     comparison["priority"] = priority
-    st.markdown('<div class="eyebrow">YOUR COMPARISON</div>', unsafe_allow_html=True)
-    summary = recommend_many(products, priority, confirmed=confirmed)
-    winner = summary["winner_index"]
-    title = products[winner].get("name", "Selected option") if winner is not None else "No winner established"
-    st.markdown(f'<div class="recommendation"><div class="eyebrow">DEALITY AI · {escape(priority.upper())}</div><h3>{escape(str(title))}</h3><p>{escape(summary["explanation"])}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
-    st.caption("Based only on returned listing details. Missing evidence may mean no winner.")
-    ml_column = st.container()
-    ml_supported = supports_deality_match_products(products)
-    with ml_column:
-        st.subheader("Deality Match")
-        st.caption("Experimental ML option for supported categories.")
-        ml_requested = st.button("Try Deality Match", disabled=not ml_supported)
-        if not ml_supported:
-            st.caption("This model needs 2–5 distinct options from one category represented in its training examples.")
-
-    if ml_requested:
-        try:
-            with st.spinner("Deality Match is ranking these product listings…"):
-                result = recommend_pilot_candidates(products, priority, st.session_state.shopping_chat)
-            st.session_state.ml_opinion = {**result, "priority": priority}
-        except (OSError, ValueError) as error:
-            st.session_state.ml_opinion = None
-            _notice(str(error), "error")
-
-    with ml_column:
-        ml_opinion = st.session_state.ml_opinion
-        if ml_opinion and ml_opinion["priority"] == priority:
-            winner = ml_opinion["winner_index"]
-            if winner is None:
-                st.write("Deality Match found no distinct top choice among these listings.")
-            else:
-                st.markdown(f"**Deality Match pick: {escape(str(products[winner].get('name', 'Selected product')))}**")
-                st.write("The classifier ranked this listing highest based on patterns in its small, user-provided examples for supported categories.")
-            st.caption(f"Experimental {ml_opinion['category']} model: trained on {ml_opinion['candidate_count']} user-labeled listings across {ml_opinion['training_scenarios']} scenarios; this category has {ml_opinion['category_scenarios']} example scenarios. Overall leave-one-scenario-out: {ml_opinion['combined_cv_matches']}/{ml_opinion['combined_cv_scenarios']} top choices; original laptop pilot: {ml_opinion['original_pilot_matches']}/{ml_opinion['original_pilot_scenarios']}. Scores are not calibrated probabilities or proof of suitability; details are unverified.")
-        elif ml_opinion:
-            st.caption("Your priority changed. Try Deality Match again for the current priority.")
-
+    with result_area.container():
+        st.markdown('<div class="eyebrow">YOUR COMPARISON</div>', unsafe_allow_html=True)
+        summary = recommend_many(products, priority, confirmed=confirmed)
+        winner = summary["winner_index"]
+        title = products[winner].get("name", "Selected option") if winner is not None else "No winner established"
+        st.markdown(f'<div class="recommendation"><div class="eyebrow">DEALITY AI · {escape(priority.upper())}</div><h3>{escape(str(title))}</h3><p>{escape(summary["explanation"])}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
+        st.caption("Based only on returned listing details. Missing evidence may mean no winner.")
+        render_assistant(priority)
     rows = comparison_rows(products, confirmed=confirmed)
     if priority in SPEC_FOCUSES:
         focused = [row for row in rows if any(word in " ".join(row.values()).casefold() for word in SPEC_FOCUSES[priority])]
@@ -441,7 +389,6 @@ def render_comparison() -> None:
     st.dataframe(rows, hide_index=True, width="stretch", height=520)
     st.caption("Search phrases go to SerpApi. Comparisons and chat stay in this Streamlit session. Listing details are not independently verified.")
     st.button("Clear searches, comparison and chat", on_click=_clear)
-    render_assistant(priority)
     st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
 
 

@@ -118,26 +118,11 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("Image unavailable", self.messages())
         self.assertIn("Price unavailable", self.messages())
 
-    def test_deality_match_is_a_secondary_supported_category_recommender(self):
-        self.query(1, "first laptop")
-        self.query(2, "second laptop")
-        self.click("Compare selected products →")
-        self.click("Try Deality Match")
-        self.assertIsNotNone(self.at.session_state["ml_opinion"])
-        self.assertEqual(self.at.session_state["ml_opinion"]["candidate_count"], 71)
-        self.assertTrue(any("Deality Match" in item.value for item in self.at.subheader))
-        self.assertTrue(any("original laptop pilot: 0/3" in item.value for item in self.at.caption))
-        self.assertEqual(self.search.call_count, 2)
-
-    def test_deality_match_button_supports_smartphones(self):
-        self.query(1, "pixel phone")
-        self.query(2, "galaxy phone")
-        self.click("Compare selected products →")
-        self.click("Try Deality Match")
-        opinion = self.at.session_state["ml_opinion"]
-        self.assertEqual(opinion["category"], "smartphone")
-        self.assertEqual(opinion["category_scenarios"], 2)
-        self.assertEqual(opinion["candidate_count"], 71)
+    def test_comparison_has_no_legacy_classifier_or_provider_selection(self):
+        self.load_watches()
+        self.assertFalse(any("Deality Match" in item.value for item in self.at.subheader))
+        self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
+        self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
 
     def test_three_products_can_be_searched_compared_and_recommended(self):
         self.select("Products to compare", 3)
@@ -251,8 +236,9 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertEqual(self.search.call_count, 2)
 
     def test_comparison_page_has_no_external_assistant_selector(self):
+        self.load_watches()
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
-        self.assertFalse(any("Ollama" in str(item.value) for item in self.at.markdown))
+        self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
 
     def test_search_error_clears_previous_comparison_without_leaking(self):
         self.load_watches()
