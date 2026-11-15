@@ -243,8 +243,6 @@ def render_comparison() -> None:
             key="gemini_consent",
         )
         st.caption(f"Gemini model: {os.environ.get('GEMINI_MODEL', 'gemini-3.8-flash')}. Requests happen only when you submit a chat question or ask for an opinion. Check Google’s model pricing and data terms; limits and charges may apply.")
-    else:
-        st.caption(f"Local Ollama model: {os.environ.get('OLLAMA_MODEL', LOCAL_DEFAULT_MODEL)}. No AI API key is needed; Ollama and its model must be installed locally.")
 
     columns = st.columns(2)
     selected_by_slot = {}
