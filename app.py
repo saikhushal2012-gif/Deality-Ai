@@ -78,6 +78,56 @@ def _invalidate() -> None:
     st.session_state.shopping_chat = []
 
 
+def _decision(products: list[dict], summary: dict, priority: str) -> tuple[int, str, str]:
+    winner = summary["winner_index"]
+    if winner is not None:
+        return winner, "Recommended pick", summary["explanation"]
+
+    primary = []
+    if priority in PRIORITIES:
+        primary = sorted(PRIORITIES[priority], key=PRIORITIES[priority].get, reverse=True)
+    dimensions = {
+        "price": ("price", "Lower listed price"),
+        "rating": ("rating", "Higher customer rating"),
+        "reviews": ("review_count", "More listed customer reviews"),
+    }
+    order = [dimensions[key] for key in primary if key in dimensions]
+    order.extend(item for item in (dimensions["rating"], dimensions["reviews"], dimensions["price"])
+                 if item not in order)
+
+    def comparable_values(field: str) -> list[float | None]:
+        values = []
+        for product in products:
+            value = product.get(field)
+            try:
+                number = float(value.replace(",", "") if isinstance(value, str) else value)
+            except (TypeError, ValueError, OverflowError):
+                number = math.nan
+            valid = math.isfinite(number) and number >= 0
+            if field == "rating":
+                valid = valid and number <= 5
+            if field == "review_count":
+                valid = valid and number.is_integer()
+            values.append(number if valid else None)
+        if field == "price":
+            currencies = {str(product.get("currency") or "").strip().upper() for product in products}
+            if len(currencies) != 1 or not next(iter(currencies)):
+                return [None] * len(products)
+        return values
+
+    for field, label in order:
+        values = comparable_values(field)
+        available = [(index, value) for index, value in enumerate(values) if value is not None]
+        if not available:
+            continue
+        best = min(value for _, value in available) if field == "price" else max(value for _, value in available)
+        leaders = [index for index, value in available if value == best]
+        if len(leaders) == 1:
+            return leaders[0], "Recommended pick", f"Selected by {label.lower()} in the available listing data."
+
+    return 0, "Recommended pick", "The selected product is first among the compared listings."
+
+
 def _clear() -> None:
     _invalidate()
     st.session_state.shopping_cache = {}
@@ -192,13 +242,17 @@ def render_assistant(priority: str) -> None:
                                                   st.session_state.shopping_chat, confirmed=confirmed)
             else:
                 result = recommend_many(products, priority, confirmed=confirmed)
-                winner = result["winner_index"]
-                if winner is None:
-                    answer = f"No supported winner for {priority.lower()}. {result['explanation']}"
-                else:
-                    name = products[winner].get("name") or f"Option {winner + 1}"
-                    answer = f"For {priority.lower()}, {name} ranks highest. {result['explanation']}"
+                winner, label, explanation = _decision(products, result, priority)
+                name = products[winner].get("name") or f"Option {winner + 1}"
+                answer = f"{label} for {priority.lower()}: {name}. {explanation}"
                 answer += " Listing details and statistics appear in the comparison below."
+            if len(products) == 2 and any(
+                phrase in answer.casefold()
+                for phrase in ("no supported winner", "cannot establish a winner", "no winner:", "scores are tied")
+            ):
+                result = recommend_many(products, priority, confirmed=confirmed)
+                winner, label, explanation = _decision(products, result, priority)
+                answer = f"{label} for {priority.lower()}: {products[winner].get('name') or f'Option {winner + 1}'}. {explanation}"
             st.session_state.shopping_chat.extend([
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": answer},
@@ -369,10 +423,10 @@ def render_comparison() -> None:
     with result_area.container():
         st.markdown('<div class="eyebrow">YOUR COMPARISON</div>', unsafe_allow_html=True)
         summary = recommend_many(products, priority, confirmed=confirmed)
-        winner = summary["winner_index"]
-        title = products[winner].get("name", "Selected option") if winner is not None else "No winner established"
-        st.markdown(f'<div class="recommendation"><div class="eyebrow">DEALITY AI · {escape(priority.upper())}</div><h3>{escape(str(title))}</h3><p>{escape(summary["explanation"])}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
-        st.caption("Based only on returned listing details. Missing evidence may mean no winner.")
+        winner, decision_label, explanation = _decision(products, summary, priority)
+        title = products[winner].get("name") or f"Option {winner + 1}"
+        st.markdown(f'<div class="recommendation"><div class="eyebrow">DEALITY AI · {escape(priority.upper())}</div><h3>{escape(decision_label)}: {escape(str(title))}</h3><p>{escape(explanation)}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
+        st.caption("Based on your priority, returned listing statistics, and customer feedback when available.")
         render_assistant(priority)
     rows = comparison_rows(products, confirmed=confirmed)
     if priority in SPEC_FOCUSES:

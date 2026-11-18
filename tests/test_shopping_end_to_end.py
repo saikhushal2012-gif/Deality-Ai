@@ -146,15 +146,15 @@ class ShoppingEndToEndTests(unittest.TestCase):
             ("Quartz Wrist Watch A", "Amazon", 49.95, "US$49.95", "https://amazon.example/watch-a"),
             ("Automatic Wrist Watch B", "Walmart", 89.0, "USD 89.00", "https://walmart.example/watch-b"),
         ])
-        self.assertIn("<h3>Quartz Wrist Watch A</h3>", self.recommendation())
+        self.assertIn("<h3>Recommended pick: Quartz Wrist Watch A</h3>", self.recommendation())
         self.assertEqual(rows.loc["Movement"].tolist(), ["Quartz", "Automatic"])
         self.assertEqual(rows.loc["Material"].tolist(), ["Steel", "Not listed"])
         self.assertEqual(rows.loc["Water resistance"].tolist(), ["Not listed", "50 m"])
         self.assertEqual(rows.loc["Features"].tolist(), ["Free delivery", "Not listed"])
         self.select("Recommendation priority", "Higher customer rating")
-        self.assertIn("<h3>Automatic Wrist Watch B</h3>", self.recommendation())
+        self.assertIn("<h3>Recommended pick: Automatic Wrist Watch B</h3>", self.recommendation())
         self.select("Recommendation priority", "Materials & build")
-        self.assertIn("<h3>No winner established</h3>", self.recommendation())
+        self.assertIn("<h3>Recommended pick: Automatic Wrist Watch B</h3>", self.recommendation())
         self.assertEqual(len(self.at.dataframe), 2)
         self.assertIn("Material", self.at.dataframe[0].value["Detail"].tolist())
         self.assert_requests("quartz wrist watch", "automatic wrist watch")
@@ -168,7 +168,7 @@ class ShoppingEndToEndTests(unittest.TestCase):
             ("Ultrabook Laptop A", "eBay", 599.0, "US$599.00", "https://ebay.example/laptop-a"),
             ("Desktop Computer B", "Best Buy", 799.0, "US$799.00", "https://bestbuy.example/desktop-b"),
         ])
-        self.assertIn("<h3>Ultrabook Laptop A</h3>", self.recommendation())
+        self.assertIn("<h3>Recommended pick: Ultrabook Laptop A</h3>", self.recommendation())
         self.assertEqual(rows.loc["RAM"].tolist(), ["16 GB", "32 GB"])
         self.assertEqual(rows.loc["Storage"].tolist(), ["512 GB", "Not listed"])
         self.assertEqual(rows.loc["Processor"].tolist(), ["Not listed", "Example CPU"])
