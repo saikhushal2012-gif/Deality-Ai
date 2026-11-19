@@ -266,10 +266,18 @@ def render_assistant(priority: str) -> None:
         for message_index, message in enumerate(st.session_state.shopping_chat):
             with st.chat_message(message["role"]):
                 st.text(message["content"])
-                if message["role"] == "assistant" and any(
+                previous_question = next((entry["content"] for entry in reversed(st.session_state.shopping_chat[:message_index])
+                                          if entry["role"] == "user"), "")
+                currencies = [str(product.get("currency") or "").strip().upper() for product in products]
+                missing_price_currency = bool(re.search(r"\b(?:cheaper|cheapest|lower price|lowest price|price only|which costs less)\b",
+                                                        previous_question, re.I)) and (
+                    not all(re.fullmatch(r"[A-Z]{3}", currency) for currency in currencies)
+                    or len(set(currencies)) != 1
+                )
+                if message["role"] == "assistant" and (missing_price_currency or any(
                     phrase in message["content"].casefold()
                     for phrase in ("not provided", "not returned", "missing or invalid", "different currencies", "details weren't provided", "couldn't find that detail", "no matching detail was returned", "units or format aren't clear")
-                ):
+                )):
                     for product_index, product in enumerate(products):
                         url = _retailer_url(product.get("url")) or _shopping_url(product.get("shopping_url"))
                         if url:

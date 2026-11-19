@@ -65,24 +65,19 @@ def _price_issue(products: Sequence[Mapping[str, Any]]) -> str | None:
 def _price_question_answer(products: Sequence[Mapping[str, Any]]) -> str:
     prices = [_number(product.get("price")) for product in products]
     if any(price is None for price in prices):
-        return "The prices cannot be compared because a price wasn't provided for every listing. " + _summary(products)
+        return "I can't compare the prices because a price is missing."
 
     issue = _price_issue(products)
-    if issue:
-        if "different currencies" in issue:
-            return f"I can't tell which is cheaper: {issue} " + _summary(products)
-        lower = min(range(len(prices)), key=prices.__getitem__)
-        if all(price == prices[0] for price in prices):
-            return f"The listings show the same numeric price ({_money(products[0])}), but {issue} " + _summary(products)
-        others = " and ".join(_money(product) for index, product in enumerate(products) if index != lower)
-        return (f"{_name(products[lower], lower)} has the lower displayed amount ({_money(products[lower])} vs {others}). "
-            f"The currency code wasn't provided. {issue} I can't confirm these are comparable prices without matching currency codes. " + _summary(products))
+    if issue and "different currencies" in issue:
+        return "I can't compare prices in different currencies."
 
     if all(price == prices[0] for price in prices):
-        return f"The listings have the same returned price ({_money(products[0])}). " + _summary(products)
+        return f"The prices are tied at {_money(products[0])}."
     lower = min(range(len(prices)), key=prices.__getitem__)
     others = " and ".join(_money(product) for index, product in enumerate(products) if index != lower)
-    return f"{_name(products[lower], lower)} has the lower listed price ({_money(products[lower])} vs {others}). " + _summary(products)
+    if issue:
+        return f"{_name(products[lower], lower)} has the lower displayed price: {_money(products[lower])} vs {others}."
+    return f"{_name(products[lower], lower)} is cheaper: {_money(products[lower])} vs {others}."
 
 
 def _contextual_question(prompt: str, history: Sequence[Mapping[str, Any]] | None) -> str:

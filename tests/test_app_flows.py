@@ -238,8 +238,9 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("Quartz Watch A", self.messages())
         self.ask("Which is cheaper?")
         answer = self.at.session_state["shopping_chat"][-1]["content"]
-        self.assertIn("Quartz Watch A has the lower displayed amount", answer)
-        self.assertIn("currency code wasn't provided", answer)
+        self.assertIn("Quartz Watch A has the lower displayed price", answer)
+        self.assertIn("$899.00 vs $1,399.00", answer)
+        self.assertNotIn("currency", answer)
         self.assertNotIn("balanced value", answer)
         urls = [item.proto.url for item in self.at.get("link_button")]
         self.assertGreaterEqual(urls.count(WATCH_A["url"]), 2)
