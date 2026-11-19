@@ -246,7 +246,10 @@ def render_assistant(priority: str) -> None:
                 name = products[winner].get("name") or f"Option {winner + 1}"
                 answer = f"{label} for {priority.lower()}: {name}. {explanation}"
                 answer += " Listing details and statistics appear in the comparison below."
-            if len(products) == 2 and any(
+            general_recommendation = bool(re.search(r"\b(?:recommend|recommendation|best|better|opinion|choose|pick)\b", question, re.I)) and not bool(
+                re.search(r"\b(?:price|cheaper|cheapest|budget|under|below|less than|maximum|max|up to|rating|reviews|weight|heavier|lighter)\b", question, re.I)
+            )
+            if len(products) == 2 and general_recommendation and any(
                 phrase in answer.casefold()
                 for phrase in ("no supported winner", "cannot establish a winner", "no winner:", "scores are tied")
             ):
@@ -265,7 +268,7 @@ def render_assistant(priority: str) -> None:
                 st.text(message["content"])
                 if message["role"] == "assistant" and any(
                     phrase in message["content"].casefold()
-                    for phrase in ("not provided", "not returned", "details weren't provided", "couldn't find that detail", "no matching detail was returned", "units or format aren't clear")
+                    for phrase in ("not provided", "not returned", "missing or invalid", "different currencies", "details weren't provided", "couldn't find that detail", "no matching detail was returned", "units or format aren't clear")
                 ):
                     for product_index, product in enumerate(products):
                         url = _retailer_url(product.get("url")) or _shopping_url(product.get("shopping_url"))
@@ -425,6 +428,7 @@ def render_comparison() -> None:
     if not comparison:
         st.button("Clear searches, comparison and chat", on_click=_clear)
         _notice("Search for both products, select distinct results, and compare them.")
+        render_assistant(priority)
         st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
         return
     products = comparison["products"]

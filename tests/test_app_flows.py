@@ -100,7 +100,7 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.select("Recommendation priority", "Higher customer rating")
         self.assertIn("Automatic Watch B", self.messages())
         self.select("Recommendation priority", "Materials & build")
-        self.assertIn("No winner", self.messages())
+        self.assertIn("Recommended pick: Automatic Watch B", self.messages())
         self.assertEqual(self.search.call_count, 2)
         self.model.assert_not_called()
 
@@ -226,12 +226,24 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertEqual(self.search.call_count, 2)
 
     def test_recommendation_is_immediate_and_chat_uses_rules(self):
+        first = deepcopy(WATCH_A)
+        first.update(price=899, price_display="$899.00", currency=None)
+        second = deepcopy(WATCH_B)
+        second.update(price=1399, price_display="$1,399.00", currency=None)
+        self.search.side_effect = lambda query: deepcopy({
+            "first watch": [first], "second watch": [second],
+        }.get(query, []))
         self.load_watches()
         self.assertIn("DEALITY AI · BALANCED VALUE", self.messages())
         self.assertIn("Quartz Watch A", self.messages())
         self.ask("Which is cheaper?")
-        self.assertIn("Quartz Watch A", self.at.session_state["shopping_chat"][-1]["content"])
-        self.assertIn("comparison-based opinion", self.at.session_state["shopping_chat"][-1]["content"])
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("Quartz Watch A has the lower displayed amount", answer)
+        self.assertIn("currency code wasn't provided", answer)
+        self.assertNotIn("balanced value", answer)
+        urls = [item.proto.url for item in self.at.get("link_button")]
+        self.assertGreaterEqual(urls.count(WATCH_A["url"]), 2)
+        self.assertGreaterEqual(urls.count(WATCH_B["url"]), 2)
         self.model.assert_not_called()
         self.assertEqual(self.search.call_count, 2)
 

@@ -74,6 +74,17 @@ class ShoppingAssistantTests(unittest.TestCase):
                     self.assertNotIn("is the pick", answer)
                     self.assertIn("cannot be compared", answer)
 
+    def test_cheaper_question_answers_from_visible_amounts_without_claiming_currency(self):
+        products = deepcopy(self.products)
+        products[0].update(price_display="$899.00", price=899, currency=None, name="Acer Nitro")
+        products[1].update(price_display="$1,399.00", price=1399, currency=None, name="Laptop B")
+        answer = answer_shopping_question("Which is cheaper?", products)
+        self.assertIn("Acer Nitro has the lower displayed amount", answer)
+        self.assertIn("$899.00 vs $1,399.00", answer)
+        self.assertIn("currency is missing or invalid", answer)
+        self.assertIn("can't confirm these are comparable prices", answer)
+        self.assertNotIn("balanced value", answer)
+
     def test_tied_budget_prices_have_no_winner(self):
         self.products[1].update(price=50, price_display="$50")
         answer = answer_shopping_question("Budget $60", self.products)

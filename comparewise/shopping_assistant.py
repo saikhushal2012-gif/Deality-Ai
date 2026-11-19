@@ -62,6 +62,29 @@ def _price_issue(products: Sequence[Mapping[str, Any]]) -> str | None:
     return None
 
 
+def _price_question_answer(products: Sequence[Mapping[str, Any]]) -> str:
+    prices = [_number(product.get("price")) for product in products]
+    if any(price is None for price in prices):
+        return "The prices cannot be compared because a price wasn't provided for every listing. " + _summary(products)
+
+    issue = _price_issue(products)
+    if issue:
+        if "different currencies" in issue:
+            return f"I can't tell which is cheaper: {issue} " + _summary(products)
+        lower = min(range(len(prices)), key=prices.__getitem__)
+        if all(price == prices[0] for price in prices):
+            return f"The listings show the same numeric price ({_money(products[0])}), but {issue} " + _summary(products)
+        others = " and ".join(_money(product) for index, product in enumerate(products) if index != lower)
+        return (f"{_name(products[lower], lower)} has the lower displayed amount ({_money(products[lower])} vs {others}). "
+            f"The currency code wasn't provided. {issue} I can't confirm these are comparable prices without matching currency codes. " + _summary(products))
+
+    if all(price == prices[0] for price in prices):
+        return f"The listings have the same returned price ({_money(products[0])}). " + _summary(products)
+    lower = min(range(len(prices)), key=prices.__getitem__)
+    others = " and ".join(_money(product) for index, product in enumerate(products) if index != lower)
+    return f"{_name(products[lower], lower)} has the lower listed price ({_money(products[lower])} vs {others}). " + _summary(products)
+
+
 def _contextual_question(prompt: str, history: Sequence[Mapping[str, Any]] | None) -> str:
     vague = re.fullmatch(
         r"(?:and\s+|so\s+|then\s+)?(?:which (?:one )?(?:would|should) (?:you|i) (?:choose|pick|buy|get)|"
@@ -109,7 +132,7 @@ def _budget(question: str) -> tuple[float, str, bool] | None:
     return float(match.group("amount").replace(",", "")), currency, match.group("op").lower() in ("under", "below", "less than")
 
 
-_IGNORED = set("which what does has have with from this that better compare both their show tell about specification specifications product products listing listings would should choose recommend recommendation opinion pick buy need want looking find please one best fits budget under below less than maximum price cost dollars euro euros pounds feature features must highest higher lowest lower rating rated reviews review customers customer value only just care now more most cheapest cheaper option options good for and the your".split())
+_IGNORED = set("which what does has have with from this that better compare both their show tell about specification specifications product products listing listings would should choose recommend recommendation opinion pick buy need want looking find please one best fits budget under below less than maximum price cost dollars euro euros pounds feature features movement must highest higher lowest lower rating rated reviews review customers customer value only just care now more most cheapest cheaper option options good for and the your".split())
 
 
 def _feature_evidence(question: str, products: Sequence[Mapping[str, Any]]) -> str:
@@ -289,9 +312,12 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     # An unrecognized currency/amount must not silently become a recommendation.
     if re.search(r"\b(?:under|below|less than|budget|maximum|max|up to)\b", text) and re.search(r"\d", text):
         return "I couldn’t safely interpret that budget and currency; specify an amount and currency code. " + summary + (" " + evidence if evidence else "")
+    if re.search(r"\b(?:cheaper|cheapest|lower price|lowest price|price only|which costs less)\b", text):
+        return _price_question_answer(products)
     if evidence:
         return evidence
-    if re.search(r"\b(?:recommend|best|worth|opinion|choose|pick|better|compare|cheaper|cheapest)\b", text) or target:
+    if (re.search(r"\b(?:recommend|best|worth|opinion|choose|pick|better|compare|cheaper|cheapest)\b", text)
+            or re.search(r"\b(?:highest rated|higher rated|highest rating|higher rating)\b", text) or target):
         if re.search(r"\b(?:cheapest|cheaper|lowest price|lower price|price only|only (?:the )?price)\b", text):
             priority = "Lower price"
         elif re.search(r"\b(?:more|most|highest|higher)\s+(?:customer\s+)?reviews\b", text):
