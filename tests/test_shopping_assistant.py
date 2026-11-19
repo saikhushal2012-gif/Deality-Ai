@@ -192,6 +192,21 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertIn("ASUS ROG", answer)
         self.assertIn("listed processor", answer)
 
+    def test_what_do_you_think_followup_keeps_the_gaming_question_context(self):
+        products = [
+            {"name": "Acer Nitro Gaming Laptop", "specifications": {"GPU": "RTX 4060"}},
+            {"name": "ASUS ROG Gaming Laptop", "specifications": {"GPU": "RTX 4070"}},
+        ]
+        history = [
+            {"role": "user", "content": "Which is just better for gaming?"},
+            {"role": "assistant", "content": "Previous response."},
+            {"role": "user", "content": "like what do you think"},
+        ]
+        answer = answer_shopping_question("like what do you think", products, history=history)
+        self.assertIn("ASUS ROG", answer)
+        self.assertIn("listed graphics", answer)
+        self.assertNotIn("couldn't find that detail", answer)
+
     def test_unrecognized_question_does_not_trigger_a_product_recommendation(self):
         answer = answer_shopping_question("Does it support satellite messaging?", self.products)
         self.assertIn("couldn't find that detail", answer)

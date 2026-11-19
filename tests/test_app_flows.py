@@ -302,6 +302,25 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("listed graphics", answer)
         self.model.assert_not_called()
 
+    def test_casual_opinion_followup_keeps_gaming_context(self):
+        first = deepcopy(LAPTOP)
+        first.update(name="Acer Nitro Gaming Laptop", specifications={"GPU": "RTX 4060"})
+        second = deepcopy(LAPTOP_TWO)
+        second.update(name="ASUS ROG Gaming Laptop", specifications={"GPU": "RTX 4070"})
+        self.search.side_effect = lambda query: deepcopy({
+            "acer": [first], "asus": [second],
+        }.get(query, []))
+        self.query(1, "acer")
+        self.query(2, "asus")
+        self.click("Compare selected products →")
+        self.ask("Which is just better for gaming?")
+        self.ask("like what do you think")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("ASUS ROG", answer)
+        self.assertIn("listed graphics", answer)
+        self.assertNotIn("couldn't find that detail", answer)
+        self.model.assert_not_called()
+
     def test_openai_failure_falls_back_to_listing_rules(self):
         self.load_watches()
         self.model.side_effect = ModelAssistantError("provider unavailable")
