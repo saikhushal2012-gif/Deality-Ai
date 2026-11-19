@@ -46,7 +46,7 @@ MYSTERY_2 = product("n", "Mystery Item Two", "Shop N", "https://n.example/item")
 
 class ShoppingAppFlowTests(unittest.TestCase):
     def setUp(self):
-        self.enterContext(patch.dict("os.environ", {"OPENAI_API_KEY": ""}))
+        self.enterContext(patch.dict("os.environ", {"GEMINI_API_KEY": ""}))
         self.search_patch = patch("comparewise.sources.search_shopping_products")
         self.search = self.search_patch.start()
         self.addCleanup(self.search_patch.stop)
@@ -58,7 +58,7 @@ class ShoppingAppFlowTests(unittest.TestCase):
             "pixel phone": [PHONE_A], "galaxy phone": [PHONE_B],
             "mystery": [MYSTERY, MYSTERY_2], "same": [WATCH_A],
         }.get(query, []))
-        self.model_patch = patch("comparewise.openai_assistant.request_model_answer",
+        self.model_patch = patch("comparewise.gemini_assistant.request_model_answer",
                      return_value="Laptop Two is the better gaming pick based on its listed specs.")
         self.model = self.model_patch.start()
         self.addCleanup(self.model_patch.stop)
@@ -270,18 +270,18 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
         self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
 
-    def test_openai_answers_open_ended_gaming_question_when_configured(self):
+    def test_gemini_answers_open_ended_gaming_question_when_configured(self):
         self.query(1, "first laptop")
         self.query(2, "second laptop")
         self.click("Compare selected products →")
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key"}):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
             self.ask("Which is the better gaming laptop?")
         self.assertIn("Laptop Two is the better gaming pick", self.at.session_state["shopping_chat"][-1]["content"])
         self.model.assert_called_once()
         self.assertEqual(self.model.call_args.args[0], "Which is the better gaming laptop?")
-        self.assertEqual(self.model.call_args.kwargs["api_key"], "test-openai-key")
+        self.assertEqual(self.model.call_args.kwargs["api_key"], "test-gemini-key")
 
-    def test_gaming_question_uses_hardware_evidence_without_openai_key(self):
+    def test_gaming_question_uses_hardware_evidence_without_gemini_key(self):
         first = deepcopy(LAPTOP)
         first.update(name="Acer Nitro Gaming Laptop Intel Core 5 210H", specifications={
             "CPU": "Intel Core 5 210H", "GPU": "NVIDIA GeForce RTX 4060 Laptop GPU", "RAM": "16 GB",
@@ -321,19 +321,19 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertNotIn("couldn't find that detail", answer)
         self.model.assert_not_called()
 
-    def test_openai_failure_falls_back_to_listing_rules(self):
+    def test_gemini_failure_falls_back_to_listing_rules(self):
         self.load_watches()
         self.model.side_effect = ModelAssistantError("provider unavailable")
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key"}):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
             self.ask("Which is the better option for everyday use?")
         answer = self.at.session_state["shopping_chat"][-1]["content"]
         self.assertTrue(answer)
         self.assertIn("Quartz Watch A", answer)
         self.model.assert_called_once()
 
-    def test_direct_price_question_stays_concise_with_openai_configured(self):
+    def test_direct_price_question_stays_concise_with_gemini_configured(self):
         self.load_watches()
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key"}):
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
             self.ask("what is more expensive")
         answer = self.at.session_state["shopping_chat"][-1]["content"]
         self.assertIn("Automatic Watch B is more expensive", answer)

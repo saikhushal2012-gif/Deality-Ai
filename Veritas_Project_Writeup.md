@@ -12,7 +12,7 @@ Online shoppers often compare similar products across different retailers, but p
 
 Deality AI is a Python/Streamlit prototype for comparing 2–5 offers across product categories—not only computers, but also watches, hoodies, appliances, headphones, cameras, and musical instruments. Users can search Google Shopping separately for each option or enter listing details manually. The app displays available listing details side by side, blocks detected product-purpose mismatches, and asks users to confirm uncertain comparisons.
 
-The shopper immediately receives a transparent, deterministic recommendation based on the selected listings and priority. With `OPENAI_API_KEY` configured, the inline Deality AI chat uses OpenAI for open-ended questions grounded in selected listing evidence. Direct price/weight answers and offline fallback remain rule-based. Shoppers can compare prices, ratings, review counts, or supplied specification evidence, while missing information remains unavailable rather than being invented.
+The shopper immediately receives a transparent, deterministic recommendation based on the selected listings and priority. With `GEMINI_API_KEY` configured, the inline Deality AI chat uses Gemini for open-ended questions grounded in selected listing evidence. Direct price/weight answers and offline fallback remain rule-based. Shoppers can compare prices, ratings, review counts, or supplied specification evidence, while missing information remains unavailable rather than being invented.
 
 ## What We Added
 
@@ -22,7 +22,7 @@ Our additions include 2–5 product comparisons, manual entry when a search resu
 
 SerpApi’s Google Shopping Results API, using its `google_shopping` engine, retrieves offers. Results are unverified search listings, not product records confirmed by Deality AI. The app normalizes returned fields and user-entered details without filling in missing facts.
 
-The app’s primary score remains a deterministic comparison of supplied listing evidence and selected priorities. Optional hosted OpenAI chat answers broader questions using bounded listing context; the question and listing details are sent to OpenAI, while product and image URLs are excluded. Provider answers are not independently verified. **Deality Match** is a separate experimental scikit-learn TF-IDF/logistic-regression preference classifier for same-category comparisons represented in its examples, including laptops and selected non-laptop categories. Non-laptop coverage is exceptionally sparse, so it is not a reliable general-purpose recommender.
+The app’s primary score remains a deterministic comparison of supplied listing evidence and selected priorities. Optional hosted Gemini chat answers broader questions using bounded listing context; the question and listing details are sent to Google AI, while product and image URLs are excluded. Provider answers are not independently verified. **Deality Match** is a separate experimental scikit-learn TF-IDF/logistic-regression preference classifier for same-category comparisons represented in its examples, including laptops and selected non-laptop categories. Non-laptop coverage is exceptionally sparse, so it is not a reliable general-purpose recommender.
 
 ## Results
 
@@ -37,6 +37,6 @@ Our pilot listings, preference labels, and additional laptop and non-laptop scen
 ## Sources and Credits
 
 - **Shopping search/API:** SerpApi, [Google Shopping Results API](https://serpapi.com/google-shopping-api). Pilot examples were supplied from retailer offers on [Walmart](https://www.walmart.com/), [Newegg](https://www.newegg.com/), [Best Buy](https://www.bestbuy.com/), and [Micro Center](https://www.microcenter.com/); listing details/prices are unverified and can change. No external public training dataset was used.
-- **Recommendation assistant:** deterministic score engine with optional hosted OpenAI chat; no local language model is called by the app. Configure `OPENAI_API_KEY` in local `.env` or Streamlit Cloud Secrets for hosted answers; API usage may incur charges.
+- **Recommendation assistant:** deterministic score engine with optional hosted Gemini chat; no local language model is called by the app. Configure `GEMINI_API_KEY` in local `.env` or Streamlit Cloud Secrets for hosted answers; free-tier quotas and data terms apply.
 - **Experimental model and software:** [scikit-learn](https://scikit-learn.org/), [Streamlit](https://streamlit.io/), [Requests](https://requests.readthedocs.io/), [python-dotenv](https://github.com/theskumar/python-dotenv), and [joblib](https://joblib.readthedocs.io/).
 - **Development assistance:** [GitHub Copilot](https://github.com/features/copilot) assisted coding; [OpenAI ChatGPT](https://chatgpt.com/) assisted with prompt brainstorming/refinement. [Add any other AI tools, tutorials, assets, and sources used by the team.]

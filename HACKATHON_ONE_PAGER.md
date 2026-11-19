@@ -14,7 +14,7 @@ Deality AI is a Streamlit prototype for comparing 2–5 product offers. Shoppers
 
 ## AI approach and current status
 
-The app immediately provides a deterministic recommendation from the selected priority and returned listing evidence. With `OPENAI_API_KEY` configured, open-ended chat questions use OpenAI with selected listing evidence; direct price/weight answers and offline fallback remain rule-based. Hosted answers may be incorrect, and bounded questions and listing details are sent to OpenAI. Deality Match is a separate experimental scikit-learn preference classifier for supported same-category products, trained from user-provided examples; non-laptop category coverage is very sparse.
+The app immediately provides a deterministic recommendation from the selected priority and returned listing evidence. With `GEMINI_API_KEY` configured, open-ended chat questions use Gemini with selected listing evidence; direct price/weight answers and offline fallback remain rule-based. Hosted answers may be incorrect, and bounded questions and listing details are sent to Google AI. Deality Match is a separate experimental scikit-learn preference classifier for supported same-category products, trained from user-provided examples; non-laptop category coverage is very sparse.
 
 The original laptop pilot has 9 eligible candidate rows across 3 scenarios; its classifier and cheapest-candidate baseline each matched 0/3 held-out favorites. Deality Match now uses 71 candidate rows across 29 scenarios: the original pilot, eleven additional laptop scenarios, and fifteen scenarios across other categories. Leave-one-scenario-out across all examples gave 0.521 candidate-label accuracy and 15/29 top-choice matches; results by source were 0/3 original laptop pilot, 6/11 added laptop scenarios, and 12/15 non-laptop scenarios. The non-laptop sample is highly sparse and heterogeneous; these unverified examples do not establish real-world performance. Separately, an offline synthetic experiment had candidate-label accuracy of 1.000 training / 0.667 validation and scenario top-choice accuracy of 16/16 training / 1/4 validation. We will not claim improved recommendations.
 
@@ -35,7 +35,7 @@ Collect permitted, verified preference labels; evaluate the generated and learne
 ## Credits
 
 - Listing discovery: SerpApi Google Shopping Results API; provider data is subject to its own terms.
-- Recommendation assistant: deterministic score engine with optional hosted OpenAI chat; no local model is used at runtime.
+- Recommendation assistant: deterministic score engine with optional hosted Gemini chat; no local model is used at runtime.
 - Software libraries: Streamlit, Requests, python-dotenv, scikit-learn, and joblib; check package licenses in the installed distributions.
 - Development tools: GitHub Copilot assisted coding; OpenAI ChatGPT assisted prompt brainstorming/refinement. Add any other AI tools, assets, tutorials, and sources used by the team.
 - Experimental pilot data: user-provided, unverified listing and preference examples in `data/labeling_pilot.csv`; no external public training dataset.

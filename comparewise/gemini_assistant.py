@@ -1,4 +1,4 @@
-"""Hosted OpenAI answers grounded in selected, unverified shopping listings."""
+"""Hosted Gemini answers grounded in selected, unverified shopping listings."""
 
 from __future__ import annotations
 
@@ -17,11 +17,11 @@ from .model_assistant import (
 )
 from .shopping_comparison import comparison_compatibility
 
-DEFAULT_MODEL = "gpt-4o-mini"
-API_URL = "https://api.openai.com/v1/chat/completions"
+DEFAULT_MODEL = "gemini-3.8-flash"
+API_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 REQUEST_TIMEOUT = (5, 45)
 MAX_OUTPUT_CHARS = 12000
-_MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z", re.ASCII)
+_MODEL_NAME = re.compile(r"gemini-[A-Za-z0-9._-]{1,100}\Z", re.ASCII)
 _SYSTEM_INSTRUCTION = (
     "You are Deality AI, a helpful shopping assistant. Answer the shopper's actual "
     "question directly and naturally using the selected listings, relevant conversation, "
@@ -50,15 +50,15 @@ def request_model_answer(
     confirmed: bool = False,
     api_key: str | None = None,
 ) -> str:
-    """Ask OpenAI about two to five selected listings; never fetch product URLs."""
+    """Ask Gemini about selected listings; never fetch product URLs."""
     if not isinstance(products, (list, tuple)) or not 2 <= len(products) <= 5 or not all(isinstance(item, Mapping) for item in products):
         raise ValueError("Between two and five listing dictionaries are required.")
-    key = (api_key or os.environ.get("OPENAI_API_KEY", "")).strip()
+    key = (api_key or os.environ.get("GEMINI_API_KEY", "")).strip()
     if not key or any(character.isspace() for character in key):
-        raise ModelAssistantError("OpenAI is not configured. Set OPENAI_API_KEY to enable online answers.")
-    model = os.environ.get("OPENAI_MODEL", DEFAULT_MODEL).strip()
+        raise ModelAssistantError("Gemini is not configured. Set GEMINI_API_KEY to enable online answers.")
+    model = os.environ.get("GEMINI_MODEL", DEFAULT_MODEL).strip()
     if not _MODEL_NAME.fullmatch(model):
-        raise ModelAssistantError("Invalid OPENAI_MODEL configuration.")
+        raise ModelAssistantError("Invalid GEMINI_MODEL configuration.")
     secrets = (*_sanitizers._secrets(), key)
     prompt = _sanitizers._safe_text(question, MAX_QUESTION_CHARS, secrets)
     if not prompt:
@@ -73,48 +73,51 @@ def request_model_answer(
     data = {
         "listings": [_sanitizers._listing(product, secrets) for product in products],
         "priority": _sanitizers._safe_text(priority, MAX_PRIORITY_CHARS, secrets),
-        "recent_conversation": _sanitizers._history(history, prompt, secrets),
         "question": prompt,
     }
+    contents = []
+    for message in _sanitizers._history(history, prompt, secrets):
+        contents.append({"role": "model" if message["role"] == "assistant" else "user",
+                         "parts": [{"text": message["content"]}]})
+    contents.append({"role": "user", "parts": [{"text": json.dumps(data, ensure_ascii=True)}]})
     body = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": _SYSTEM_INSTRUCTION},
-            {"role": "user", "content": json.dumps(data, ensure_ascii=True)},
-        ],
-        "temperature": 0.2,
-        "max_tokens": 500,
-        "stream": False,
+        "systemInstruction": {"parts": [{"text": _SYSTEM_INSTRUCTION}]},
+        "contents": contents,
+        "generationConfig": {"temperature": 0.3, "maxOutputTokens": 600},
     }
     try:
         response = requests.post(
-            API_URL,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+            API_URL.format(model=model),
+            headers={"x-goog-api-key": key, "Content-Type": "application/json"},
             json=body,
             timeout=REQUEST_TIMEOUT,
             allow_redirects=False,
         )
     except requests.Timeout:
-        raise ModelAssistantError("The online assistant timed out. Try again.") from None
+        raise ModelAssistantError("Gemini timed out. Try again.") from None
     except requests.ConnectionError:
-        raise ModelAssistantError("The online assistant could not be reached. Try again.") from None
+        raise ModelAssistantError("Gemini could not be reached. Try again.") from None
     except requests.RequestException:
-        raise ModelAssistantError("The online assistant request failed. Try again.") from None
+        raise ModelAssistantError("Gemini request failed. Try again.") from None
 
-    if response.status_code == 401:
-        raise ModelAssistantError("The OpenAI API key was rejected. Check OPENAI_API_KEY.")
+    if response.status_code in (400, 403):
+        raise ModelAssistantError("Gemini rejected the key or request. Check the API key and Google AI Studio access.")
+    if response.status_code == 404:
+        raise ModelAssistantError("The configured Gemini model was not found. Check GEMINI_MODEL.")
     if response.status_code == 429:
-        raise ModelAssistantError("The online assistant is busy or its API quota is unavailable. Try again later.")
+        raise ModelAssistantError("Gemini's free-tier rate limit or quota was reached. Try again later.")
     if not 200 <= response.status_code < 300:
-        raise ModelAssistantError(f"The online assistant request failed (HTTP {response.status_code}).")
+        raise ModelAssistantError(f"Gemini request failed (HTTP {response.status_code}).")
     try:
         payload = response.json()
-        choice = payload["choices"][0]
-        message = choice["message"]
-        text = message["content"]
-        if (message.get("role") != "assistant" or choice.get("finish_reason") not in ("stop", None)
-                or not isinstance(text, str) or not text.strip() or len(text) > MAX_OUTPUT_CHARS):
+        candidate = payload["candidates"][0]
+        content = candidate["content"]
+        if content.get("role") != "model" or candidate.get("finishReason") not in ("STOP", None):
+            raise ValueError
+        parts = content["parts"]
+        text = "".join(part["text"] for part in parts if isinstance(part, dict) and isinstance(part.get("text"), str))
+        if not text.strip() or len(text) > MAX_OUTPUT_CHARS:
             raise ValueError
     except (KeyError, IndexError, TypeError, ValueError):
-        raise ModelAssistantError("The online assistant returned an incomplete answer. Try again.") from None
+        raise ModelAssistantError("Gemini returned an incomplete answer. Try again.") from None
     return _sanitizers._redact(text.strip(), secrets)

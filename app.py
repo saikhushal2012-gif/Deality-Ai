@@ -11,7 +11,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
-from comparewise import openai_assistant
+from comparewise import gemini_assistant
 from comparewise.shopping_comparison import (
     PRIORITIES, SPEC_FOCUSES, comparison_compatibility, comparison_rows, recommend_many,
 )
@@ -130,12 +130,12 @@ def _decision(products: list[dict], summary: dict, priority: str) -> tuple[int, 
     return 0, "Recommended pick", "The selected product is first among the compared listings."
 
 
-def _openai_api_key() -> str:
-    key = os.environ.get("OPENAI_API_KEY", "").strip()
+def _gemini_api_key() -> str:
+    key = os.environ.get("GEMINI_API_KEY", "").strip()
     if key:
         return key
     try:
-        return str(st.secrets.get("OPENAI_API_KEY", "")).strip()
+        return str(st.secrets.get("GEMINI_API_KEY", "")).strip()
     except (FileNotFoundError, KeyError):
         return ""
 
@@ -268,12 +268,12 @@ def render_assistant(priority: str) -> None:
     comparison = st.session_state.comparison
     products = comparison["products"] if comparison else []
     confirmed = bool(comparison and comparison["confirmed"])
-    api_key = _openai_api_key()
+    api_key = _gemini_api_key()
     st.subheader("Ask Deality AI")
     if api_key:
-        st.caption("OpenAI handles open-ended questions; your question and selected listing details are sent to OpenAI.")
+        st.caption("Gemini handles open-ended questions; your question and selected listing details are sent to Google AI.")
     else:
-        st.caption("Set OPENAI_API_KEY to enable online answers. Listing-rule answers work without it.")
+        st.caption("Set GEMINI_API_KEY to enable online answers. Listing-rule answers work without it.")
     with st.form("shopping_assistant_chat", clear_on_submit=True):
         prompt = st.text_input("Your requirements", placeholder="e.g. Which is cheaper, or what fits my budget?")
         send = st.form_submit_button("Ask Deality AI", type="primary", width="stretch")
@@ -287,14 +287,14 @@ def render_assistant(priority: str) -> None:
             try:
                 if api_key and not _RULE_QUESTION.search(question):
                     with st.spinner("Thinking through your question..."):
-                        answer = openai_assistant.request_model_answer(
+                        answer = gemini_assistant.request_model_answer(
                             question, products, priority, st.session_state.shopping_chat,
                             confirmed=confirmed, api_key=api_key,
                         )
                 else:
                     answer = _rule_based_answer(question, products, priority,
                                                 st.session_state.shopping_chat, confirmed)
-            except (openai_assistant.ModelAssistantError, ValueError):
+            except (gemini_assistant.ModelAssistantError, ValueError):
                 answer = _rule_based_answer(question, products, priority,
                                             st.session_state.shopping_chat, confirmed)
             st.session_state.shopping_chat.extend([
