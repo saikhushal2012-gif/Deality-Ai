@@ -46,6 +46,7 @@ MYSTERY_2 = product("n", "Mystery Item Two", "Shop N", "https://n.example/item")
 
 class ShoppingAppFlowTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.dict("os.environ", {"OPENAI_API_KEY": ""}))
         self.search_patch = patch("comparewise.sources.search_shopping_products")
         self.search = self.search_patch.start()
         self.addCleanup(self.search_patch.stop)
@@ -57,7 +58,8 @@ class ShoppingAppFlowTests(unittest.TestCase):
             "pixel phone": [PHONE_A], "galaxy phone": [PHONE_B],
             "mystery": [MYSTERY, MYSTERY_2], "same": [WATCH_A],
         }.get(query, []))
-        self.model_patch = patch("comparewise.local_model_assistant.request_model_answer", return_value="A grounded model answer.")
+        self.model_patch = patch("comparewise.openai_assistant.request_model_answer",
+                     return_value="Laptop Two is the better gaming pick based on its listed specs.")
         self.model = self.model_patch.start()
         self.addCleanup(self.model_patch.stop)
         self.at = AppTest.from_file(str(APP_PATH)).run(timeout=30)
@@ -242,6 +244,11 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("$899.00 vs $1,399.00", answer)
         self.assertNotIn("currency", answer)
         self.assertNotIn("balanced value", answer)
+        self.ask("what is more expensive")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("Automatic Watch B", answer)
+        self.assertIn("has the higher displayed price", answer)
+        self.assertIn("$1,399.00 vs $899.00", answer)
         urls = [item.proto.url for item in self.at.get("link_button")]
         self.assertGreaterEqual(urls.count(WATCH_A["url"]), 2)
         self.assertGreaterEqual(urls.count(WATCH_B["url"]), 2)
@@ -262,6 +269,36 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.load_watches()
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
         self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
+
+    def test_openai_answers_open_ended_gaming_question_when_configured(self):
+        self.query(1, "first laptop")
+        self.query(2, "second laptop")
+        self.click("Compare selected products →")
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key"}):
+            self.ask("Which is the better gaming laptop?")
+        self.assertIn("Laptop Two is the better gaming pick", self.at.session_state["shopping_chat"][-1]["content"])
+        self.model.assert_called_once()
+        self.assertEqual(self.model.call_args.args[0], "Which is the better gaming laptop?")
+        self.assertEqual(self.model.call_args.kwargs["api_key"], "test-openai-key")
+
+    def test_openai_failure_falls_back_to_listing_rules(self):
+        self.load_watches()
+        self.model.side_effect = ModelAssistantError("provider unavailable")
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key"}):
+            self.ask("Which is the better option for everyday use?")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertTrue(answer)
+        self.assertIn("Quartz Watch A", answer)
+        self.model.assert_called_once()
+
+    def test_direct_price_question_stays_concise_with_openai_configured(self):
+        self.load_watches()
+        with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key"}):
+            self.ask("what is more expensive")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("Automatic Watch B is more expensive", answer)
+        self.assertIn("US$90 vs US$50", answer)
+        self.model.assert_not_called()
 
     def test_search_error_clears_previous_comparison_without_leaking(self):
         self.load_watches()

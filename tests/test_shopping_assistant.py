@@ -87,6 +87,13 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertNotIn("balanced value", answer)
         self.assertLessEqual(len(answer.split()), 12)
 
+    def test_more_expensive_question_names_product_and_prices(self):
+        products = deepcopy(self.products)
+        products[0].update(price_display="$899.00", price=899, currency=None, name="Acer Nitro")
+        products[1].update(price_display="$2,149.99", price=2149.99, currency=None, name="ASUS ROG")
+        answer = answer_shopping_question("what is more expensive", products)
+        self.assertEqual(answer, "ASUS ROG has the higher displayed price: $2,149.99 vs $899.00.")
+
     def test_tied_budget_prices_have_no_winner(self):
         self.products[1].update(price=50, price_display="$50")
         answer = answer_shopping_question("Budget $60", self.products)

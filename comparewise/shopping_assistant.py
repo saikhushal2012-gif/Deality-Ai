@@ -62,7 +62,7 @@ def _price_issue(products: Sequence[Mapping[str, Any]]) -> str | None:
     return None
 
 
-def _price_question_answer(products: Sequence[Mapping[str, Any]]) -> str:
+def _price_question_answer(products: Sequence[Mapping[str, Any]], *, more_expensive: bool = False) -> str:
     prices = [_number(product.get("price")) for product in products]
     if any(price is None for price in prices):
         return "I can't compare the prices because a price is missing."
@@ -73,11 +73,14 @@ def _price_question_answer(products: Sequence[Mapping[str, Any]]) -> str:
 
     if all(price == prices[0] for price in prices):
         return f"The prices are tied at {_money(products[0])}."
-    lower = min(range(len(prices)), key=prices.__getitem__)
-    others = " and ".join(_money(product) for index, product in enumerate(products) if index != lower)
+    selected = (max if more_expensive else min)(range(len(prices)), key=prices.__getitem__)
+    others = " and ".join(_money(product) for index, product in enumerate(products) if index != selected)
     if issue:
-        return f"{_name(products[lower], lower)} has the lower displayed price: {_money(products[lower])} vs {others}."
-    return f"{_name(products[lower], lower)} is cheaper: {_money(products[lower])} vs {others}."
+        comparison = "higher" if more_expensive else "lower"
+        return f"{_name(products[selected], selected)} has the {comparison} displayed price: {_money(products[selected])} vs {others}."
+    if more_expensive:
+        return f"{_name(products[selected], selected)} is more expensive: {_money(products[selected])} vs {others}."
+    return f"{_name(products[selected], selected)} is cheaper: {_money(products[selected])} vs {others}."
 
 
 def _contextual_question(prompt: str, history: Sequence[Mapping[str, Any]] | None) -> str:
@@ -307,6 +310,8 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     # An unrecognized currency/amount must not silently become a recommendation.
     if re.search(r"\b(?:under|below|less than|budget|maximum|max|up to)\b", text) and re.search(r"\d", text):
         return "I couldn’t safely interpret that budget and currency; specify an amount and currency code. " + summary + (" " + evidence if evidence else "")
+    if re.search(r"\b(?:more expensive|most expensive|pricier|costs? more|higher price|highest price)\b", text):
+        return _price_question_answer(products, more_expensive=True)
     if re.search(r"\b(?:cheaper|cheapest|lower price|lowest price|price only|which costs less)\b", text):
         return _price_question_answer(products)
     if evidence:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import itertools
 import math
+import os
 import re
 from html import escape
 from pathlib import Path
@@ -10,6 +11,7 @@ from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 
+from comparewise import openai_assistant
 from comparewise.shopping_comparison import (
     PRIORITIES, SPEC_FOCUSES, comparison_compatibility, comparison_rows, recommend_many,
 )
@@ -128,6 +130,24 @@ def _decision(products: list[dict], summary: dict, priority: str) -> tuple[int, 
     return 0, "Recommended pick", "The selected product is first among the compared listings."
 
 
+def _openai_api_key() -> str:
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if key:
+        return key
+    try:
+        return str(st.secrets.get("OPENAI_API_KEY", "")).strip()
+    except (FileNotFoundError, KeyError):
+        return ""
+
+
+_RULE_QUESTION = re.compile(
+    r"\b(?:cheaper|cheapest|more expensive|most expensive|pricier|costs? more|costs? less|"
+    r"lower price|lowest price|higher price|highest price|price only|budget|under|below|"
+    r"less than|maximum|max|up to|weight|weigh|heavy|heavier|heaviest|light|lighter|lightest)\b",
+    re.I,
+)
+
+
 def _clear() -> None:
     _invalidate()
     st.session_state.shopping_cache = {}
@@ -221,12 +241,39 @@ def render_home() -> None:
     st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
 
 
+def _rule_based_answer(question: str, products: list[dict], priority: str,
+                       history: list[dict], confirmed: bool) -> str:
+    if len(products) == 2:
+        answer = answer_shopping_question(question, products, priority, history, confirmed=confirmed)
+    else:
+        result = recommend_many(products, priority, confirmed=confirmed)
+        winner, label, explanation = _decision(products, result, priority)
+        name = products[winner].get("name") or f"Option {winner + 1}"
+        answer = f"{label} for {priority.lower()}: {name}. {explanation}"
+        answer += " Listing details and statistics appear in the comparison below."
+    general_recommendation = bool(re.search(r"\b(?:recommend|recommendation|best|better|opinion|choose|pick)\b", question, re.I)) and not bool(
+        re.search(r"\b(?:price|cheaper|cheapest|budget|under|below|less than|maximum|max|up to|rating|reviews|weight|heavier|lighter)\b", question, re.I)
+    )
+    if len(products) == 2 and general_recommendation and any(
+        phrase in answer.casefold()
+        for phrase in ("no supported winner", "cannot establish a winner", "no winner:", "scores are tied")
+    ):
+        result = recommend_many(products, priority, confirmed=confirmed)
+        winner, label, explanation = _decision(products, result, priority)
+        answer = f"{label} for {priority.lower()}: {products[winner].get('name') or f'Option {winner + 1}'}. {explanation} Listing details weren't provided or comparable for every part of this question."
+    return answer
+
+
 def render_assistant(priority: str) -> None:
     comparison = st.session_state.comparison
     products = comparison["products"] if comparison else []
     confirmed = bool(comparison and comparison["confirmed"])
+    api_key = _openai_api_key()
     st.subheader("Ask Deality AI")
-    st.caption("Answers use only the selected listings and comparison rules; no external AI service is called.")
+    if api_key:
+        st.caption("OpenAI handles open-ended questions; your question and selected listing details are sent to OpenAI.")
+    else:
+        st.caption("Set OPENAI_API_KEY to enable online answers. Listing-rule answers work without it.")
     with st.form("shopping_assistant_chat", clear_on_submit=True):
         prompt = st.text_input("Your requirements", placeholder="e.g. Which is cheaper, or what fits my budget?")
         send = st.form_submit_button("Ask Deality AI", type="primary", width="stretch")
@@ -237,25 +284,18 @@ def render_assistant(priority: str) -> None:
         elif not 2 <= len(products) <= 5:
             _notice("Compare the selected products first.", "error")
         else:
-            if len(products) == 2:
-                answer = answer_shopping_question(question, products, priority,
-                                                  st.session_state.shopping_chat, confirmed=confirmed)
-            else:
-                result = recommend_many(products, priority, confirmed=confirmed)
-                winner, label, explanation = _decision(products, result, priority)
-                name = products[winner].get("name") or f"Option {winner + 1}"
-                answer = f"{label} for {priority.lower()}: {name}. {explanation}"
-                answer += " Listing details and statistics appear in the comparison below."
-            general_recommendation = bool(re.search(r"\b(?:recommend|recommendation|best|better|opinion|choose|pick)\b", question, re.I)) and not bool(
-                re.search(r"\b(?:price|cheaper|cheapest|budget|under|below|less than|maximum|max|up to|rating|reviews|weight|heavier|lighter)\b", question, re.I)
-            )
-            if len(products) == 2 and general_recommendation and any(
-                phrase in answer.casefold()
-                for phrase in ("no supported winner", "cannot establish a winner", "no winner:", "scores are tied")
-            ):
-                result = recommend_many(products, priority, confirmed=confirmed)
-                winner, label, explanation = _decision(products, result, priority)
-                answer = f"{label} for {priority.lower()}: {products[winner].get('name') or f'Option {winner + 1}'}. {explanation} Listing details weren't provided or comparable for every part of this question."
+            try:
+                if api_key and not _RULE_QUESTION.search(question):
+                    answer = openai_assistant.request_model_answer(
+                        question, products, priority, st.session_state.shopping_chat,
+                        confirmed=confirmed, api_key=api_key,
+                    )
+                else:
+                    answer = _rule_based_answer(question, products, priority,
+                                                st.session_state.shopping_chat, confirmed)
+            except (openai_assistant.ModelAssistantError, ValueError):
+                answer = _rule_based_answer(question, products, priority,
+                                            st.session_state.shopping_chat, confirmed)
             st.session_state.shopping_chat.extend([
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": answer},
