@@ -302,7 +302,7 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("listed graphics", answer)
         self.model.assert_not_called()
 
-    def test_casual_opinion_followup_keeps_gaming_context(self):
+    def test_short_followups_keep_gaming_context(self):
         first = deepcopy(LAPTOP)
         first.update(name="Acer Nitro Gaming Laptop", specifications={"GPU": "RTX 4060"})
         second = deepcopy(LAPTOP_TWO)
@@ -315,6 +315,7 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.click("Compare selected products →")
         self.ask("Which is just better for gaming?")
         self.ask("like what do you think")
+        self.ask("why")
         answer = self.at.session_state["shopping_chat"][-1]["content"]
         self.assertIn("ASUS ROG", answer)
         self.assertIn("listed graphics", answer)

@@ -84,13 +84,13 @@ def _price_question_answer(products: Sequence[Mapping[str, Any]], *, more_expens
 
 
 def _contextual_question(prompt: str, history: Sequence[Mapping[str, Any]] | None) -> str:
-    vague = re.fullmatch(
+    vague_pattern = re.compile(
         r"(?:and\s+|so\s+|then\s+|like\s+)?(?:which (?:one )?(?:would|should) (?:you|i) (?:choose|pick|buy|get)|"
         r"which (?:one )?(?:is best|is better|do you (?:recommend|prefer))|"
         r"what (?:do you think(?: about (?:that|those|them))?|would you (?:choose|pick|recommend)|about (?:that|those|them))|"
-        r"(?:your )?(?:recommendation|choice|opinion))\s*[?.!]*", prompt, re.I,
+        r"(?:your )?(?:recommendation|choice|opinion)|why)\s*[?.!]*", re.I,
     )
-    if not vague or not isinstance(history, (list, tuple)):
+    if not vague_pattern.fullmatch(prompt) or not isinstance(history, (list, tuple)):
         return prompt
     skipped = False
     for message in reversed(history):
@@ -101,6 +101,8 @@ def _contextual_question(prompt: str, history: Sequence[Mapping[str, Any]] | Non
             continue
         if not skipped and content.strip().casefold() == prompt.casefold():
             skipped = True
+            continue
+        if vague_pattern.fullmatch(content.strip()):
             continue
         return content.strip() + " " + prompt
     return prompt

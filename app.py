@@ -238,7 +238,7 @@ def render_home() -> None:
             st.session_state.page = "compare"
             st.rerun()
     st.caption("Retailer-independent Google Shopping results · Listing details are not independently verified · Missing information stays unavailable")
-    st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer">This project is a prototype and is not financial advice.<br>Need help? Call <a href="tel:+16097514039">609-751-4039</a>.</div>', unsafe_allow_html=True)
 
 
 def _rule_based_answer(question: str, products: list[dict], priority: str,
@@ -478,7 +478,7 @@ def render_comparison() -> None:
         st.button("Clear searches, comparison and chat", on_click=_clear)
         _notice("Search for both products, select distinct results, and compare them.")
         render_assistant(priority)
-        st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
+        st.markdown('<div class="footer">This project is a prototype and is not financial advice.<br>Need help? Call <a href="tel:+16097514039">609-751-4039</a>.</div>', unsafe_allow_html=True)
         return
     products = comparison["products"]
     confirmed = comparison["confirmed"]
@@ -506,7 +506,7 @@ def render_comparison() -> None:
     st.dataframe(rows, hide_index=True, width="stretch", height=520)
     st.caption("Search phrases go to SerpApi. Comparisons and chat stay in this Streamlit session. Listing details are not independently verified.")
     st.button("Clear searches, comparison and chat", on_click=_clear)
-    st.markdown('<div class="footer">This project is a prototype and is not financial advice.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="footer">This project is a prototype and is not financial advice.<br>Need help? Call <a href="tel:+16097514039">609-751-4039</a>.</div>', unsafe_allow_html=True)
 
 
 if st.session_state.page == "home":
