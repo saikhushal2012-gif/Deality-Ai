@@ -206,6 +206,84 @@ def _weight_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
     return f"The listings report these weights: {stated}."
 
 
+def _gaming_value(product: Mapping[str, Any], kind: str) -> tuple[tuple, str] | None:
+    specs = product.get("specifications")
+    entries = [(str(key).casefold(), str(value)) for key, value in specs.items()
+               if value is not None] if isinstance(specs, Mapping) else []
+    if kind == "gpu":
+        for key, value in entries:
+            if not re.search(r"gpu|graphics|video card", key):
+                continue
+            nvidia = re.search(r"\b(rtx|gtx)\s*(\d{4})\b", value, re.I)
+            if nvidia:
+                family, model = nvidia.group(1).casefold(), int(nvidia.group(2))
+                return ((2 if family == "rtx" else 1, model // 100, model % 100), value)
+            radeon = re.search(r"\brx\s*(\d{4})\b", value, re.I)
+            if radeon:
+                return ((int(radeon.group(1)) // 100, int(radeon.group(1)) % 100), value)
+        return None
+
+    if kind == "cpu":
+        candidates = [value for key, value in entries if re.search(r"cpu|processor|chipset", key)]
+        candidates.append(str(product.get("name") or ""))
+        for value in candidates:
+            intel = re.search(r"\b(?:intel\s+)?(?:core\s+)?(?:ultra\s+)?([3579])\s*(\d{3,5})?([a-z]{1,3})?\b", value, re.I)
+            if intel and re.search(r"\b(?:intel|core|ultra)\b", value, re.I):
+                model = int(intel.group(2) or 0)
+                return ((2, int(intel.group(1)), model), value)
+            ryzen = re.search(r"\bryzen\s+([3579])\s*(\d{4,5})?([a-z]{1,3})?\b", value, re.I)
+            if ryzen:
+                return ((1, int(ryzen.group(1)), int(ryzen.group(2) or 0)), value)
+        return None
+
+    key_pattern = r"ram|memory" if kind == "ram" else r"refresh rate|display|screen"
+    for key, value in entries:
+        if not re.search(key_pattern, key):
+            continue
+        number = re.search(r"\b(\d+(?:\.\d+)?)\s*(gb|hz)\b", value, re.I)
+        if number:
+            amount = float(number.group(1))
+            return ((amount,), value)
+    return None
+
+
+def _gaming_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
+    if re.search(r"\b(?:gpu|graphics card|graphics|video card)\b", question, re.I):
+        kinds = ("gpu",)
+    elif re.search(r"\b(?:cpu|processor)\b", question, re.I):
+        kinds = ("cpu",)
+    elif re.search(r"\b(?:ram|memory)\b", question, re.I):
+        kinds = ("ram",)
+    elif re.search(r"\b(?:refresh rate|hz|screen speed)\b", question, re.I):
+        kinds = ("refresh",)
+    else:
+        kinds = ("gpu", "cpu", "ram", "refresh")
+
+    names = [_name(product, index) for index, product in enumerate(products)]
+    for kind in kinds:
+        values = [_gaming_value(product, kind) for product in products]
+        available = [(index, data) for index, data in enumerate(values) if data is not None]
+        if len(available) < 2:
+            continue
+        vendors = {data[0][0] for _, data in available} if kind in ("gpu", "cpu") else {"same"}
+        if len(available) != len(products) or len(vendors) != 1:
+            continue
+        highest = max(data[0] for _, data in available)
+        leaders = [(index, data) for index, data in available if data[0] == highest]
+        if len(leaders) != 1:
+            continue
+        winner, data = leaders[0]
+        label = {"gpu": "listed graphics", "cpu": "listed processor", "ram": "listed memory", "refresh": "listed refresh rate"}[kind]
+        return f"For gaming, {names[winner]} is my pick based on its {label} ({data[1]})."
+
+    ratings = [_number(product.get("rating"), 5) for product in products]
+    valid_ratings = [(index, rating) for index, rating in enumerate(ratings) if rating is not None]
+    if valid_ratings:
+        winner, rating = max(valid_ratings, key=lambda item: item[1])
+        return f"For gaming, my pick is {names[winner]} based on its listed {rating:g}/5 customer rating."
+    return f"For gaming, my pick is {names[0]} from the selected listings."
+
+
 def _recommendation(products: Sequence[Mapping[str, Any]], priority: str, confirmed: bool) -> str:
     summary = _summary(products)
     try:
@@ -268,6 +346,8 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     target = next((p for p in products if p.get("name") and str(p["name"]).casefold() in text), None)
     if re.search(r"\b(?:weight|weigh|heavy|heavier|heaviest|light|lighter|lightest)\b", text):
         return _weight_answer(text, products)
+    if re.search(r"\b(?:gaming|games|gamer|graphics|gpu|cpu|processor|ram|memory|refresh rate)\b", text):
+        return _gaming_answer(text, products)
     if re.search(r"\b(?:cons|downside|disadvantage|risk|weakness|drawback)s?\b", text):
         selected = [target] if target is not None else products
         rows = []

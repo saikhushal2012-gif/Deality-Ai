@@ -157,6 +157,41 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertIn("500 g", answer)
         self.assertIn("1.2 kg", answer)
 
+    def test_eight_gaming_and_component_question_phrasings_use_matching_specs(self):
+        products = [
+            {"name": "Acer Nitro Intel Core 5 210H", "rating": 4.9,
+             "specifications": {"GPU": "NVIDIA GeForce RTX 4060 Laptop GPU", "CPU": "Intel Core 5 210H",
+                                "RAM": "16 GB", "Refresh rate": "144 Hz"}},
+            {"name": "ASUS ROG Intel Core Ultra 9 285H", "rating": 4.2,
+             "specifications": {"GPU": "NVIDIA GeForce RTX 4070 Laptop GPU", "CPU": "Intel Core Ultra 9 285H",
+                                "RAM": "32 GB", "Refresh rate": "240 Hz"}},
+        ]
+        questions = (
+            ("Which is just better for gaming?", "ASUS ROG", "listed graphics"),
+            ("Which gaming laptop should I choose?", "ASUS ROG", "listed graphics"),
+            ("Which has the better GPU?", "ASUS ROG", "listed graphics"),
+            ("Which has better graphics?", "ASUS ROG", "listed graphics"),
+            ("Which has the stronger processor?", "ASUS ROG", "listed processor"),
+            ("Which has more RAM?", "ASUS ROG", "listed memory"),
+            ("Which has a faster refresh rate?", "ASUS ROG", "listed refresh rate"),
+            ("Which laptop is better for games?", "ASUS ROG", "listed graphics"),
+        )
+        for question, expected_name, expected_evidence in questions:
+            with self.subTest(question=question):
+                answer = answer_shopping_question(question, products)
+                self.assertIn(expected_name, answer)
+                self.assertIn(expected_evidence, answer)
+                self.assertNotIn("balanced value", answer.casefold())
+
+    def test_gaming_question_uses_listed_processor_when_gpu_is_missing(self):
+        products = [
+            {"name": "Acer Nitro Intel Core 5 210H", "rating": 4.9, "specifications": {}},
+            {"name": "ASUS ROG Intel Core Ultra 9 285H", "rating": 4.2, "specifications": {}},
+        ]
+        answer = answer_shopping_question("Which is just better for gaming?", products)
+        self.assertIn("ASUS ROG", answer)
+        self.assertIn("listed processor", answer)
+
     def test_unrecognized_question_does_not_trigger_a_product_recommendation(self):
         answer = answer_shopping_question("Does it support satellite messaging?", self.products)
         self.assertIn("couldn't find that detail", answer)

@@ -281,6 +281,27 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertEqual(self.model.call_args.args[0], "Which is the better gaming laptop?")
         self.assertEqual(self.model.call_args.kwargs["api_key"], "test-openai-key")
 
+    def test_gaming_question_uses_hardware_evidence_without_openai_key(self):
+        first = deepcopy(LAPTOP)
+        first.update(name="Acer Nitro Gaming Laptop Intel Core 5 210H", specifications={
+            "CPU": "Intel Core 5 210H", "GPU": "NVIDIA GeForce RTX 4060 Laptop GPU", "RAM": "16 GB",
+        })
+        second = deepcopy(LAPTOP_TWO)
+        second.update(name="ASUS ROG Gaming Laptop Intel Core Ultra 9 285H", specifications={
+            "CPU": "Intel Core Ultra 9 285H", "GPU": "NVIDIA GeForce RTX 4070 Laptop GPU", "RAM": "32 GB",
+        })
+        self.search.side_effect = lambda query: deepcopy({
+            "acer": [first], "asus": [second],
+        }.get(query, []))
+        self.query(1, "acer")
+        self.query(2, "asus")
+        self.click("Compare selected products →")
+        self.ask("Which is just better for gaming?")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("ASUS ROG", answer)
+        self.assertIn("listed graphics", answer)
+        self.model.assert_not_called()
+
     def test_openai_failure_falls_back_to_listing_rules(self):
         self.load_watches()
         self.model.side_effect = ModelAssistantError("provider unavailable")

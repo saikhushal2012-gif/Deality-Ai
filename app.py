@@ -286,10 +286,11 @@ def render_assistant(priority: str) -> None:
         else:
             try:
                 if api_key and not _RULE_QUESTION.search(question):
-                    answer = openai_assistant.request_model_answer(
-                        question, products, priority, st.session_state.shopping_chat,
-                        confirmed=confirmed, api_key=api_key,
-                    )
+                    with st.spinner("Thinking through your question..."):
+                        answer = openai_assistant.request_model_answer(
+                            question, products, priority, st.session_state.shopping_chat,
+                            confirmed=confirmed, api_key=api_key,
+                        )
                 else:
                     answer = _rule_based_answer(question, products, priority,
                                                 st.session_state.shopping_chat, confirmed)
