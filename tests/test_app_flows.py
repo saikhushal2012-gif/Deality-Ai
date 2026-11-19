@@ -235,6 +235,16 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.model.assert_not_called()
         self.assertEqual(self.search.call_count, 2)
 
+    def test_missing_weight_answer_offers_both_product_listing_links(self):
+        self.load_watches()
+        self.ask("Which one is heavier?")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("weight not provided", answer)
+        self.assertNotIn("comparison-based opinion", answer)
+        urls = [item.proto.url for item in self.at.get("link_button")]
+        self.assertGreaterEqual(urls.count(WATCH_A["url"]), 2)
+        self.assertGreaterEqual(urls.count(WATCH_B["url"]), 2)
+
     def test_comparison_page_has_no_external_assistant_selector(self):
         self.load_watches()
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))

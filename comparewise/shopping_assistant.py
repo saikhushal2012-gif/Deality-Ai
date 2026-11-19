@@ -137,6 +137,54 @@ def _feature_evidence(question: str, products: Sequence[Mapping[str, Any]]) -> s
     return "Listing evidence for your requested detail: " + " | ".join(rows) + ". I can’t infer unlisted capabilities or verify suitability from keyword matches."
 
 
+def _weight_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
+    values = []
+    for product in products:
+        details = []
+        specs = product.get("specifications")
+        if isinstance(specs, Mapping):
+            details.extend(str(value).strip() for key, value in specs.items()
+                           if "weight" in str(key).casefold() and value is not None and str(value).strip())
+        features = product.get("features")
+        if isinstance(features, (list, tuple)):
+            details.extend(str(value).strip() for value in features
+                           if value is not None and re.search(r"\b(?:weight|weighs?)\b", str(value), re.I))
+        description = str(product.get("description") or "")
+        if description and re.search(r"\bweight|weighs?\b", description, re.I):
+            details.append(description)
+        values.append("; ".join(dict.fromkeys(details)) or None)
+
+    names = [_name(product, index) for index, product in enumerate(products)]
+    if not all(values):
+        details = " | ".join(f"{name}: {value or 'weight not provided'}" for name, value in zip(names, values))
+        return f"The supplied listings don't include enough weight information to compare them. {details}. Check the product listings for weight details."
+
+    def grams(value: str) -> float | None:
+        match = re.search(r"\b(\d+(?:\.\d+)?)\s*(kg|kilograms?|g|grams?|lb|lbs|pounds?|oz|ounces?)\b", value, re.I)
+        if not match:
+            return None
+        amount = float(match.group(1))
+        unit = match.group(2).casefold()
+        factors = {"kg": 1000, "kilogram": 1000, "kilograms": 1000, "g": 1, "gram": 1, "grams": 1,
+                   "lb": 453.59237, "lbs": 453.59237, "pound": 453.59237, "pounds": 453.59237,
+                   "oz": 28.349523125, "ounce": 28.349523125, "ounces": 28.349523125}
+        return amount * factors[unit]
+
+    amounts = [grams(value) for value in values]
+    stated = " | ".join(f"{name}: {value}" for name, value in zip(names, values))
+    if any(amount is None for amount in amounts):
+        return f"The listings report these weight details: {stated}. The units or format aren't clear enough to compare the weights."
+    if math.isclose(amounts[0], amounts[1], rel_tol=0.0, abs_tol=1e-9):
+        return f"The listings report the same weight: {stated}."
+    heavier = 0 if amounts[0] > amounts[1] else 1
+    lighter = 1 - heavier
+    if re.search(r"\b(?:lighter|lightest)\b", question, re.I):
+        return f"{names[lighter]} is lighter based on the listed weights. {stated}."
+    if re.search(r"\b(?:heavier|heaviest|heavy)\b", question, re.I):
+        return f"{names[heavier]} is heavier based on the listed weights. {stated}."
+    return f"The listings report these weights: {stated}."
+
+
 def _recommendation(products: Sequence[Mapping[str, Any]], priority: str, confirmed: bool) -> str:
     summary = _summary(products)
     try:
@@ -197,6 +245,8 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     text = _contextual_question(prompt, history).casefold()
     summary = _summary(products)
     target = next((p for p in products if p.get("name") and str(p["name"]).casefold() in text), None)
+    if re.search(r"\b(?:weight|weigh|heavy|heavier|heaviest|light|lighter|lightest)\b", text):
+        return _weight_answer(text, products)
     if re.search(r"\b(?:cons|downside|disadvantage|risk|weakness|drawback)s?\b", text):
         selected = [target] if target is not None else products
         rows = []
@@ -241,7 +291,7 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
         return "I couldn’t safely interpret that budget and currency; specify an amount and currency code. " + summary + (" " + evidence if evidence else "")
     if evidence:
         return evidence
-    if re.search(r"\b(?:which|recommend|best|worth|opinion|choose|pick|better|compare|cheaper|cheapest)\b", text) or target:
+    if re.search(r"\b(?:recommend|best|worth|opinion|choose|pick|better|compare|cheaper|cheapest)\b", text) or target:
         if re.search(r"\b(?:cheapest|cheaper|lowest price|lower price|price only|only (?:the )?price)\b", text):
             priority = "Lower price"
         elif re.search(r"\b(?:more|most|highest|higher)\s+(?:customer\s+)?reviews\b", text):
@@ -251,4 +301,4 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
         return _recommendation(products, priority, confirmed)
     if re.search(r"\b(?:rating|ratings|reviews|review|customers)\b", text):
         return "Listing feedback: " + summary + " Ratings and review counts are supplied listing values, not an independent review analysis."
-    return "Ask about a budget, feature, rating, or recommendation for these two listings. I only use the supplied listing information."
+    return "I couldn't find that detail in the supplied listings, so I won't guess. Check both product listings for more information. " + summary

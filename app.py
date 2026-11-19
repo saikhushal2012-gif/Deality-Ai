@@ -252,7 +252,7 @@ def render_assistant(priority: str) -> None:
             ):
                 result = recommend_many(products, priority, confirmed=confirmed)
                 winner, label, explanation = _decision(products, result, priority)
-                answer = f"{label} for {priority.lower()}: {products[winner].get('name') or f'Option {winner + 1}'}. {explanation}"
+                answer = f"{label} for {priority.lower()}: {products[winner].get('name') or f'Option {winner + 1}'}. {explanation} Listing details weren't provided or comparable for every part of this question."
             st.session_state.shopping_chat.extend([
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": answer},
@@ -260,9 +260,19 @@ def render_assistant(priority: str) -> None:
     with st.container(height=220, border=True):
         if not st.session_state.shopping_chat:
             st.caption("Ask about price, ratings, specifications, or the current recommendation.")
-        for message in st.session_state.shopping_chat:
+        for message_index, message in enumerate(st.session_state.shopping_chat):
             with st.chat_message(message["role"]):
                 st.text(message["content"])
+                if message["role"] == "assistant" and any(
+                    phrase in message["content"].casefold()
+                    for phrase in ("not provided", "not returned", "details weren't provided", "couldn't find that detail", "no matching detail was returned", "units or format aren't clear")
+                ):
+                    for product_index, product in enumerate(products):
+                        url = _retailer_url(product.get("url")) or _shopping_url(product.get("shopping_url"))
+                        if url:
+                            name = product.get("name") or f"Option {product_index + 1}"
+                            st.link_button(f"Open {name} listing", url,
+                                           key=f"chat-listing-{message_index}-{product_index}")
 
 
 def render_comparison() -> None:

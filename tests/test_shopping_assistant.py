@@ -123,6 +123,25 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertNotIn("Trail Pack A:", answer)
         self.assertIn("won’t invent", answer)
 
+    def test_weight_question_uses_weight_evidence_instead_of_recommending(self):
+        answer = answer_shopping_question("Which one is heavier?", self.products)
+        self.assertIn("weight not provided", answer)
+        self.assertIn("Trail Pack A", answer)
+        self.assertIn("Trail Pack B", answer)
+        self.assertNotIn("comparison-based opinion", answer)
+
+        self.products[0]["specifications"]["Weight"] = "500 g"
+        self.products[1]["specifications"]["Weight"] = "1.2 kg"
+        answer = answer_shopping_question("Which one is heavier?", self.products)
+        self.assertIn("Trail Pack B is heavier", answer)
+        self.assertIn("500 g", answer)
+        self.assertIn("1.2 kg", answer)
+
+    def test_unrecognized_question_does_not_trigger_a_product_recommendation(self):
+        answer = answer_shopping_question("Does it support satellite messaging?", self.products)
+        self.assertIn("couldn't find that detail", answer)
+        self.assertNotIn("is the pick", answer)
+
     def test_real_comparison_compatibility_and_confirmation(self):
         with patch.dict(sys.modules, {"comparewise.shopping_comparison": shopping_comparison}):
             compatible = deepcopy(self.products)
