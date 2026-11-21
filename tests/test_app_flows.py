@@ -341,6 +341,15 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("US$90 vs US$50", answer)
         self.model.assert_not_called()
 
+    def test_customer_rating_question_uses_listing_values_with_gemini_configured(self):
+        self.load_watches()
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
+            self.ask("Which one is has higher customer ratings?")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("Automatic Watch B", answer)
+        self.assertIn("4.8/5 vs 4.5/5", answer)
+        self.model.assert_not_called()
+
     def test_search_error_clears_previous_comparison_without_leaking(self):
         self.load_watches()
         self.search.side_effect = SerpApiError("Search quota reached")

@@ -213,9 +213,12 @@ def _gaming_value(product: Mapping[str, Any], kind: str) -> tuple[tuple, str] | 
     entries = [(str(key).casefold(), str(value)) for key, value in specs.items()
                if value is not None] if isinstance(specs, Mapping) else []
     if kind == "gpu":
-        for key, value in entries:
-            if not re.search(r"gpu|graphics|video card", key):
-                continue
+        candidates = [value for key, value in entries if re.search(r"gpu|graphics|video card", key)]
+        candidates.extend(str(product.get(field) or "") for field in ("name", "description"))
+        features = product.get("features")
+        if isinstance(features, (list, tuple)):
+            candidates.extend(str(feature) for feature in features if feature is not None)
+        for value in candidates:
             nvidia = re.search(r"\b(rtx|gtx)\s*(\d{4})\b", value, re.I)
             if nvidia:
                 family, model = nvidia.group(1).casefold(), int(nvidia.group(2))
@@ -278,12 +281,39 @@ def _gaming_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
         label = {"gpu": "listed graphics", "cpu": "listed processor", "ram": "listed memory", "refresh": "listed refresh rate"}[kind]
         return f"For gaming, {names[winner]} is my pick based on its {label} ({data[1]})."
 
+    gpu_values = [_gaming_value(product, "gpu") for product in products]
+    known_gpus = [(index, data) for index, data in enumerate(gpu_values) if data is not None]
+    gpu_evidence = " | ".join(
+        f"{names[index]}: {data[1] if data else 'GPU not listed'}"
+        for index, data in enumerate(gpu_values)
+    )
+    if len(known_gpus) == 1:
+        winner, data = known_gpus[0]
+        return (f"Based on the only listed GPU, {names[winner]} is the more promising gaming option "
+                f"({data[1]}). The other listing's GPU isn't provided, so I can't confirm "
+                f"head-to-head performance. {gpu_evidence}")
+    if known_gpus:
+        return f"For gaming, the available graphics evidence is {gpu_evidence}. I can't reliably rank these GPUs from the supplied listing details."
+    return f"I can't reliably compare gaming performance from the supplied listings: GPU details aren't listed for both options. {gpu_evidence}"
+
+
+def _rating_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
     ratings = [_number(product.get("rating"), 5) for product in products]
-    valid_ratings = [(index, rating) for index, rating in enumerate(ratings) if rating is not None]
-    if valid_ratings:
-        winner, rating = max(valid_ratings, key=lambda item: item[1])
-        return f"For gaming, my pick is {names[winner]} based on its listed {rating:g}/5 customer rating."
-    return f"For gaming, my pick is {names[0]} from the selected listings."
+    names = [_name(product, index) for index, product in enumerate(products)]
+    if any(rating is None for rating in ratings):
+        details = " | ".join(
+            f"{name}: {rating:g}/5" if rating is not None else f"{name}: rating not listed"
+            for name, rating in zip(names, ratings)
+        )
+        return f"I can't compare the customer ratings because a rating is missing. {details}."
+    if ratings[0] == ratings[1]:
+        return f"The listings show tied customer ratings: {ratings[0]:g}/5 each."
+    lower = bool(re.search(r"\b(?:lower|lowest|less|fewer)\b", question, re.I))
+    winner = (min if lower else max)(range(len(ratings)), key=ratings.__getitem__)
+    other = 1 - winner
+    comparison = "lower" if lower else "higher"
+    return (f"{names[winner]} has the {comparison} listed customer rating "
+            f"({ratings[winner]:g}/5 vs {ratings[other]:g}/5). Ratings are supplied listing values.")
 
 
 def _recommendation(products: Sequence[Mapping[str, Any]], priority: str, confirmed: bool) -> str:
@@ -348,6 +378,9 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     target = next((p for p in products if p.get("name") and str(p["name"]).casefold() in text), None)
     if re.search(r"\b(?:weight|weigh|heavy|heavier|heaviest|light|lighter|lightest)\b", text):
         return _weight_answer(text, products)
+    if (re.search(r"\b(?:ratings?|rated)\b", text)
+            and re.search(r"\b(?:higher|highest|lower|lowest|better|more|less|compare|which|what)\b", text)):
+        return _rating_answer(text, products)
     if re.search(r"\b(?:gaming|games|gamer|graphics|gpu|cpu|processor|ram|memory|refresh rate)\b", text):
         return _gaming_answer(text, products)
     if re.search(r"\b(?:cons|downside|disadvantage|risk|weakness|drawback)s?\b", text):

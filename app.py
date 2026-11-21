@@ -143,7 +143,8 @@ def _gemini_api_key() -> str:
 _RULE_QUESTION = re.compile(
     r"\b(?:cheaper|cheapest|more expensive|most expensive|pricier|costs? more|costs? less|"
     r"lower price|lowest price|higher price|highest price|price only|budget|under|below|"
-    r"less than|maximum|max|up to|weight|weigh|heavy|heavier|heaviest|light|lighter|lightest)\b",
+    r"less than|maximum|max|up to|weight|weigh|heavy|heavier|heaviest|light|lighter|lightest|"
+    r"ratings?|rated)\b",
     re.I,
 )
 

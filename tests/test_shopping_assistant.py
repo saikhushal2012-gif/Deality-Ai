@@ -107,9 +107,11 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertIn("60.00", answer)
         self.assertNotIn("100.00", answer)
         self.assertNotIn("5.00", answer)
-        answer = answer_shopping_question("Which has the higher rating?", self.products, history=history)
-        self.module.recommend_products.assert_called_with(self.products[0], self.products[1], "Higher customer rating", confirmed=False)
+        self.module.recommend_products.reset_mock()
+        answer = answer_shopping_question("Which one is has higher customer ratings?", self.products, history=history)
+        self.module.recommend_products.assert_not_called()
         self.assertIn("Trail Pack B", answer)
+        self.assertIn("4.8/5 vs 4.1/5", answer)
         self.assertNotIn("60.00", answer)
 
     def test_spec_focus_and_priority_delegate_to_shopping_comparison(self):
@@ -191,6 +193,21 @@ class ShoppingAssistantTests(unittest.TestCase):
         answer = answer_shopping_question("Which is just better for gaming?", products)
         self.assertIn("ASUS ROG", answer)
         self.assertIn("listed processor", answer)
+
+    def test_gaming_question_uses_gpu_in_title_and_flags_missing_comparison_gpu(self):
+        products = [
+            {"name": "Lenovo LOQ-E Gaming Laptop NVIDIA GeForce RTX 3050", "rating": 4.5,
+             "specifications": {}},
+            {"name": "Nimo 17.3 inch Gaming Laptop AMD Ryzen 5 6600H", "rating": 3.6,
+             "specifications": {}},
+        ]
+        answer = answer_shopping_question("Which is better for laptop gaming?", products)
+        self.assertIn("Lenovo LOQ-E", answer)
+        self.assertIn("more promising gaming option", answer)
+        self.assertIn("RTX 3050", answer)
+        self.assertIn("GPU not listed", answer)
+        self.assertIn("can't confirm head-to-head performance", answer)
+        self.assertNotIn("customer rating", answer)
 
     def test_what_do_you_think_followup_keeps_the_gaming_question_context(self):
         products = [
