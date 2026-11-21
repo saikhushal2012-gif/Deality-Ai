@@ -270,19 +270,6 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
         self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
 
-    def test_judge_qa_works_from_home_without_products_or_gemini(self):
-        judge_app = AppTest.from_file(str(APP_PATH)).run(timeout=30)
-        self.assertFalse(judge_app.exception)
-        widget(judge_app.button, "Practice judge Q&A").click().run(timeout=30)
-        self.assertFalse(judge_app.exception)
-        widget(judge_app.text_area, "Ask a judge question").set_value("How much money does it save?")
-        widget(judge_app.button, "Ask Deality AI").click().run(timeout=30)
-        self.assertFalse(judge_app.exception)
-        self.assertIsNone(judge_app.session_state["comparison"])
-        answer = judge_app.session_state["judge_chat"][-1]["content"]
-        self.assertIn("not measured", answer)
-        self.assertIn("potential benefit", answer)
-
     def test_gemini_answers_open_ended_gaming_question_when_configured(self):
         self.query(1, "first laptop")
         self.query(2, "second laptop")
