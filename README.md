@@ -7,7 +7,7 @@ Deality AI is a hackathon prototype for comparing product offers from multiple r
 ## Run locally
 
 1. Install Python 3.10 or later, then install dependencies with `python -m pip install -r requirements.txt`.
-2. Copy `.env.example` to `.env`. Add your own `SERPAPI_API_KEY` for live Shopping search. No AI-provider key is needed.
+2. Copy `.env.example` to `.env`. Add your own `SERPAPI_API_KEY` for live Shopping search. `GEMINI_API_KEY` is optional for online open-ended shopping chat and judge Q&A; deterministic and verified offline answers remain available without it.
 3. Run `python -m streamlit run app.py` and open `http://localhost:8501`. Restart after changing `.env`.
 
 Never commit `.env`, print a key, or share credentials in chat. `.gitignore` excludes the local environment file. Do not deploy this prototype with API keys exposed to browsers or public source control.
@@ -30,7 +30,7 @@ A **separate offline synthetic experiment** is stored in `data/synthetic_prefere
 
 ## AI assistant and privacy
 
-Search phrases are sent to SerpApi, subject to that provider's data policies and quota. When Gemini is configured, the user's question, bounded conversation history, and selected listing names, prices, ratings, reviews, descriptions, features, and specifications are sent to Google AI for an answer. Product URLs, image URLs, and unrelated listing fields are excluded. Set `GEMINI_API_KEY` in local `.env` or Streamlit Cloud Secrets. The free tier has usage limits and its data terms differ from paid tiers; check Google's current policies before sending sensitive information. Product selections, cache, comparison state, and chat are kept in the active Streamlit session and are not written to a Deality database. **Clear searches, comparison and chat** removes the session's current comparison data.
+The home page includes a judge Q&A practice mode grounded in a project brief and verified offline answers. When Gemini is configured, judge questions and bounded recent judge-chat history are sent to Google AI; shopping chat additionally sends bounded selected-listing fields. Product URLs, image URLs, and unrelated listing fields are excluded from shopping chat. Set `GEMINI_API_KEY` in local `.env` or Streamlit Cloud Secrets. The free tier has usage limits and its data terms differ from paid tiers; check Google's current policies before sending sensitive information. Product selections, cache, comparison state, and both chats are kept in the active Streamlit session and are not written to a Deality database. Clear controls remove session data.
 
 ## Tests and verification
 

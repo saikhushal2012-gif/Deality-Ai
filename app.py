@@ -12,6 +12,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 from comparewise import gemini_assistant
+from comparewise import project_qa
 from comparewise.shopping_comparison import (
     PRIORITIES, SPEC_FOCUSES, comparison_compatibility, comparison_rows, recommend_many,
 )
@@ -65,6 +66,7 @@ for key, default in (
     *((f"results_{index}", []) for index in range(1, 6)),
     *((f"manual_{index}", None) for index in range(1, 6)),
     ("shopping_chat", []),
+    ("judge_chat", []),
     ("current_pair", None),
 ):
     if key not in st.session_state:
@@ -78,6 +80,10 @@ def _notice(message: str, kind: str = "info") -> None:
 def _invalidate() -> None:
     st.session_state.comparison = None
     st.session_state.shopping_chat = []
+
+
+def _clear_judge_chat() -> None:
+    st.session_state.judge_chat = []
 
 
 def _decision(products: list[dict], summary: dict, priority: str) -> tuple[int, str, str]:
@@ -150,6 +156,7 @@ _RULE_QUESTION = re.compile(
 
 def _clear() -> None:
     _invalidate()
+    _clear_judge_chat()
     st.session_state.shopping_cache = {}
     for key in (f"results_{index}" for index in range(1, 6)):
         st.session_state[key] = []
@@ -232,10 +239,14 @@ def render_home() -> None:
         with column:
             st.markdown(f'<div class="how-card"><div class="step-number">{number}</div><h3>{title}</h3><p class="muted">{copy}</p></div>', unsafe_allow_html=True)
     st.write("")
-    _, center, _ = st.columns([1, 1, 1])
-    with center:
+    compare_column, judge_column = st.columns(2)
+    with compare_column:
         if st.button("Start comparing →", type="primary", width="stretch"):
             st.session_state.page = "compare"
+            st.rerun()
+    with judge_column:
+        if st.button("Practice judge Q&A", width="stretch"):
+            st.session_state.page = "judge"
             st.rerun()
     st.caption("Retailer-independent Google Shopping results · Listing details are not independently verified · Missing information stays unavailable")
     st.markdown('<div class="footer">This project is a prototype and is not financial advice.<br>Need help? Call <a href="tel:+16097514039">609-751-4039</a>.</div>', unsafe_allow_html=True)
@@ -325,6 +336,55 @@ def render_assistant(priority: str) -> None:
                             name = product.get("name") or f"Option {product_index + 1}"
                             st.link_button(f"Open {name} listing", url,
                                            key=f"chat-listing-{message_index}-{product_index}")
+
+
+def render_judge_qa() -> None:
+    back_column, compare_column = st.columns(2)
+    with back_column:
+        if st.button("← Home", key="judge_home"):
+            st.session_state.page = "home"
+            st.rerun()
+    with compare_column:
+        if st.button("Start comparing →", key="judge_compare", type="primary"):
+            st.session_state.page = "compare"
+            st.rerun()
+    st.title("Judge Q&A practice")
+    api_key = _gemini_api_key()
+    if api_key:
+        st.caption("Gemini can answer using the project brief. Judge questions and recent judge-chat messages are sent to Google AI.")
+    else:
+        st.caption("Common questions use verified project notes. Set GEMINI_API_KEY for open-ended Gemini answers.")
+    with st.form("judge_qa_form", clear_on_submit=True):
+        question = st.text_area("Ask a judge question", placeholder="e.g. Where is the AI in Deality AI?", max_chars=2000, height=90)
+        submitted = st.form_submit_button("Ask Deality AI", type="primary", width="stretch")
+    if submitted:
+        prompt = question.strip()
+        if not prompt:
+            _notice("Enter a judge question.", "error")
+        else:
+            answer = None
+            if api_key:
+                try:
+                    with st.spinner("Preparing a grounded answer..."):
+                        answer = gemini_assistant.request_project_answer(
+                            prompt, st.session_state.judge_chat, api_key=api_key,
+                        )
+                except (gemini_assistant.ModelAssistantError, ValueError):
+                    _notice("Gemini is unavailable; showing the verified offline answer.")
+            if answer is None:
+                answer = project_qa.answer_project_question(prompt)
+            st.session_state.judge_chat.extend([
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": answer},
+            ])
+    with st.container(height=360, border=True):
+        if not st.session_state.judge_chat:
+            st.caption("Ask about the pitch, Finance connection, technology, AI and ML, data, testing, privacy, or limitations.")
+        for message in st.session_state.judge_chat:
+            with st.chat_message(message["role"]):
+                st.text(message["content"])
+    st.button("Clear judge Q&A", on_click=_clear_judge_chat)
+    st.markdown('<div class="footer">This project is a prototype and is not financial advice.<br>Need help? Call <a href="tel:+16097514039">609-751-4039</a>.</div>', unsafe_allow_html=True)
 
 
 def render_comparison() -> None:
@@ -511,5 +571,7 @@ def render_comparison() -> None:
 
 if st.session_state.page == "home":
     render_home()
+elif st.session_state.page == "judge":
+    render_judge_qa()
 else:
     render_comparison()

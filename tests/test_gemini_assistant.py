@@ -80,6 +80,22 @@ class GeminiAssistantTests(unittest.TestCase):
         with self.assertRaisesRegex(assistant.ModelAssistantError, "rejected the key or request") as caught:
             assistant.request_model_answer("Which is better?", self.products)
         self.assertNotIn("test-gemini-key", str(caught.exception))
+
+    def test_project_answer_uses_brief_without_listing_data(self):
+        answer = assistant.request_project_answer(
+            "Does the current chat use Gemini?",
+            [{"role": "user", "content": "How does the comparison work?"}],
+        )
+        self.assertEqual(answer, "Option 1 is the better fit.")
+        args, kwargs = self.post.call_args
+        self.assertEqual(args, (assistant.API_URL.format(model="gemini-3.8-flash"),))
+        body = kwargs["json"]
+        self.assertIn("Deality AI is a Python and Streamlit prototype", body["systemInstruction"]["parts"][0]["text"])
+        self.assertEqual(body["contents"][-1]["parts"][0]["text"], "Does the current chat use Gemini?")
+        self.assertEqual(body["contents"][0]["role"], "user")
+        serialized = json.dumps(body)
+        for forbidden in ("shop.example", "img.example", "test-serp-key", "test-gemini-key"):
+            self.assertNotIn(forbidden, serialized)
         self.post.return_value = response(status=429)
         with self.assertRaisesRegex(assistant.ModelAssistantError, "free-tier rate limit or quota"):
             assistant.request_model_answer("Which is better?", self.products)
