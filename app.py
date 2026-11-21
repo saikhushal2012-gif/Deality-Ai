@@ -149,7 +149,7 @@ _RULE_QUESTION = re.compile(
     r"\b(?:cheaper|cheapest|more expensive|most expensive|pricier|costs? more|costs? less|"
     r"lower price|lowest price|higher price|highest price|price only|budget|under|below|"
     r"less than|maximum|max|up to|weight|weigh|heavy|heavier|heaviest|light|lighter|lightest|"
-    r"ratings?|rated)\b",
+    r"ratings?|rated|storage|capacity|ssd|hard ?drive|disk space|rom)\b",
     re.I,
 )
 
@@ -237,15 +237,6 @@ def render_home() -> None:
                                            ("Find offers from multiple retailers.", "Review prices and the details actually provided.", "See the trade-offs and choose with more clarity.")):
         with column:
             st.markdown(f'<div class="how-card"><div class="step-number">{number}</div><h3>{title}</h3><p class="muted">{copy}</p></div>', unsafe_allow_html=True)
-    st.write("")
-    st.subheader("A clearer decision before you spend")
-    st.write("Deality AI brings offers together, compares the information retailers actually provide, and makes trade-offs easier to see. It does not decide what you can afford or promise that you will save money.")
-    metric_columns = st.columns(3)
-    metric_columns[0].metric("Offers per comparison", "2–5")
-    metric_columns[1].metric("Offline experiment accuracy", "52.1%")
-    metric_columns[2].metric("Shopper savings measured", "Not yet")
-    st.caption("The 52.1% result and 15/29 top-choice matches came from a small, user-provided, offline ML experiment. That model does not power live recommendations; the results are not a measure of real-world accuracy.")
-    st.write("")
     _, center, _ = st.columns([1, 1, 1])
     with center:
         if st.button("Start comparing →", type="primary", width="stretch"):

@@ -377,6 +377,24 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertIn("4.8/5 vs 4.5/5", answer)
         self.model.assert_not_called()
 
+    def test_phone_storage_question_uses_named_listing_evidence_with_gemini_configured(self):
+        iphone = product("i", "Apple iPhone 18 Pro Max", "Apple", "https://apple.example/iphone",
+                         category="Smartphone", price=1199, rating=4.7, specifications={})
+        pixel = product("p", "Google Pixel 11 Pro XL 512gb Olive Unlocked Android Smartphone",
+                        "Google", "https://google.example/pixel", category="Smartphone",
+                        price=1099, rating=4.6, specifications={})
+        self.search.side_effect = lambda query: {"iphone": [iphone], "pixel": [pixel]}.get(query, [])
+        self.query(1, "iphone")
+        self.query(2, "pixel")
+        self.click("Compare selected products →")
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
+            self.ask("which is better for storage")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("I'd tentatively recommend Google Pixel 11 Pro XL", answer)
+        self.assertIn("512 GB", answer)
+        self.assertNotIn("Option 1", answer)
+        self.model.assert_not_called()
+
     def test_search_error_clears_previous_comparison_without_leaking(self):
         self.load_watches()
         self.search.side_effect = SerpApiError("Search quota reached")

@@ -35,7 +35,7 @@ class ShoppingAssistantTests(unittest.TestCase):
         answer = answer_shopping_question("Which has a rain cover?", self.products)
         self.assertIn("Rain cover included", answer)
         self.assertIn("no matching detail was returned", answer)
-        self.assertIn("can’t infer unlisted capabilities", answer)
+        self.assertIn("can't verify details", answer)
         answer = answer_shopping_question("Show ratings", self.products)
         self.assertIn("Outdoor Shop", answer)
         self.assertIn("Hiking Market", answer)
@@ -117,7 +117,7 @@ class ShoppingAssistantTests(unittest.TestCase):
     def test_spec_focus_and_priority_delegate_to_shopping_comparison(self):
         answer = answer_shopping_question("Which do you recommend?", self.products, "Size & weight")
         self.assertIn("Capacity", answer)
-        self.assertIn("cannot establish a winner", answer)
+        self.assertIn("can't identify a supported winner", answer)
         self.module.comparison_rows.assert_called_once_with(self.products, confirmed=False)
         answer = answer_shopping_question("Which do you recommend?", self.products, "More customer reviews")
         self.module.recommend_products.assert_called_once_with(*self.products, "More customer reviews", confirmed=False)
@@ -126,7 +126,7 @@ class ShoppingAssistantTests(unittest.TestCase):
 
     def test_no_winner_and_missing_rating(self):
         self.module.recommend_products.return_value = {"winner_index": None, "explanation": "Scores are tied."}
-        self.assertIn("No supported winner", answer_shopping_question("Which is best?", self.products))
+        self.assertIn("can't identify a clear winner", answer_shopping_question("Which is best?", self.products))
         self.products[1]["rating"] = 8
         answer = answer_shopping_question("Which is best?", self.products)
         self.assertIn("rating is missing or invalid", answer)
@@ -209,6 +209,20 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertIn("can't confirm head-to-head performance", answer)
         self.assertNotIn("customer rating", answer)
 
+    def test_phone_storage_question_uses_capacity_in_product_title(self):
+        products = [
+            {"name": "Apple iPhone 18 Pro Max", "price": 1199, "currency": "USD", "rating": 4.7,
+             "specifications": {}},
+            {"name": "Google Pixel 11 Pro XL 512gb Olive Unlocked Android Smartphone", "price": 1099,
+             "currency": "USD", "rating": 4.6, "specifications": {}},
+        ]
+        answer = answer_shopping_question("which is better for storage", products)
+        self.assertIn("I'd tentatively recommend Google Pixel 11 Pro XL", answer)
+        self.assertIn("512 GB", answer)
+        self.assertIn("Apple iPhone 18 Pro Max's capacity isn't listed", answer)
+        self.assertNotIn("Option 1", answer)
+        self.assertNotIn("Option 2", answer)
+
     def test_what_do_you_think_followup_keeps_the_gaming_question_context(self):
         products = [
             {"name": "Acer Nitro Gaming Laptop", "specifications": {"GPU": "RTX 4060"}},
@@ -235,7 +249,7 @@ class ShoppingAssistantTests(unittest.TestCase):
             compatible[0]["name"] = "Laptop A"
             compatible[1]["name"] = "Laptop B"
             self.assertIn("Laptop A", answer_shopping_question("Which is cheaper?", compatible))
-            self.assertIn("cannot establish a winner", answer_shopping_question("Which do you recommend?", compatible, "Size & weight"))
+            self.assertIn("can't identify a supported winner", answer_shopping_question("Which do you recommend?", compatible, "Size & weight"))
             uncertain = answer_shopping_question("Under $60", self.products)
             self.assertIn("confirmation", uncertain)
             confirmed = answer_shopping_question("Under $60", self.products, confirmed=True)

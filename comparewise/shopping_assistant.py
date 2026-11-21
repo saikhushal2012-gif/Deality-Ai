@@ -32,6 +32,12 @@ def _name(product: Mapping[str, Any], index: int) -> str:
     return str(product.get("name") or f"Option {index + 1}")
 
 
+def _named_options(text: str, products: Sequence[Mapping[str, Any]]) -> str:
+    for index, product in enumerate(products):
+        text = re.sub(rf"\bOption {index + 1}\b", _name(product, index), text)
+    return text
+
+
 def _money(product: Mapping[str, Any]) -> str:
     price = _number(product.get("price"))
     if price is None:
@@ -47,7 +53,7 @@ def _summary(products: Sequence[Mapping[str, Any]]) -> str:
         rating_text = f"{rating:g}/5" if rating is not None else "rating unavailable"
         review_text = f"{reviews:,.0f} reviews" if reviews is not None else "review count unavailable"
         seller = f", seller: {product['seller']}" if product.get("seller") else ""
-        parts.append(f"Option {index + 1}, {_name(product, index)}{seller}: {_money(product)}, {rating_text}, {review_text}.")
+        parts.append(f"{_name(product, index)}{seller}: {_money(product)}, {rating_text}, {review_text}.")
     return " ".join(parts)
 
 
@@ -154,10 +160,65 @@ def _feature_evidence(question: str, products: Sequence[Mapping[str, Any]]) -> s
         any_match |= bool(matches)
         if generic and not terms:
             matches = fields
-        rows.append(f"Option {index + 1}, {_name(product, index)}: " + ("; ".join(dict.fromkeys(matches)) if matches else "no matching detail was returned"))
+        rows.append(f"{_name(product, index)}: " + ("; ".join(dict.fromkeys(matches)) if matches else "no matching detail was returned"))
     if not (any_match or generic or (specific and terms)):
         return ""
-    return "Listing evidence for your requested detail: " + " | ".join(rows) + ". I can’t infer unlisted capabilities or verify suitability from keyword matches."
+    return "The details most relevant to your question are: " + " | ".join(rows) + ". I can't verify details that the listings don't provide."
+
+
+_CAPACITY = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*(TB|GB)\b", re.I)
+_STORAGE_CONTEXT = re.compile(r"\b(?:storage|ssd|hdd|hard ?drive|disk|rom|flash storage)\b", re.I)
+_PHONE_CONTEXT = re.compile(r"\b(?:phone|smartphone|iphone|pixel|galaxy|ipad|tablet)\b", re.I)
+
+
+def _storage_value(product: Mapping[str, Any]) -> tuple[float, str] | None:
+    specs = product.get("specifications")
+    candidates = []
+    if isinstance(specs, Mapping):
+        candidates.extend(str(value) for key, value in specs.items()
+                          if _STORAGE_CONTEXT.search(str(key)) and value is not None)
+    for field in ("features", "description"):
+        value = product.get(field)
+        values = value if isinstance(value, (list, tuple)) else (value,)
+        candidates.extend(str(item) for item in values if item is not None and _STORAGE_CONTEXT.search(str(item)))
+    name = str(product.get("name") or "")
+    if _PHONE_CONTEXT.search(name):
+        candidates.append(name)
+    for candidate in candidates:
+        match = _CAPACITY.search(candidate)
+        if match:
+            amount = float(match.group(1))
+            unit = match.group(2).upper()
+            gigabytes = amount * 1000 if unit == "TB" else amount
+            return gigabytes, f"{amount:g} {unit}"
+    return None
+
+
+def _storage_answer(products: Sequence[Mapping[str, Any]], priority: str, confirmed: bool) -> str:
+    names = [_name(product, index) for index, product in enumerate(products)]
+    capacities = [_storage_value(product) for product in products]
+    details = " | ".join(
+        f"{name}: {capacity[1] if capacity else 'storage capacity not listed'}"
+        for name, capacity in zip(names, capacities)
+    )
+    known = [(index, capacity) for index, capacity in enumerate(capacities) if capacity]
+    if len(known) == 2:
+        if math.isclose(known[0][1][0], known[1][1][0]):
+            return f"Both listings show the same storage capacity. {details}. For an overall pick, {_recommendation(products, priority, confirmed)}"
+        winner = max(known, key=lambda item: item[1][0])[0]
+        other = 1 - winner
+        return (f"I'd recommend {names[winner]} if storage is your priority because it lists {capacities[winner][1]}, "
+                f"compared with {capacities[other][1]} for {names[other]}. Both are retailer-provided listing details.")
+    if len(known) == 1:
+        winner, capacity = known[0]
+        return (f"I'd tentatively recommend {names[winner]} for storage because its listing states {capacity[1]}. "
+                f"{names[1 - winner]}'s capacity isn't listed, so I can't confirm which has more. {details}.")
+    fallback_priority = "Balanced value" if priority in {
+        "Materials & build", "Battery & power", "Performance & components", "Size & weight", "Warranty & support",
+    } else priority
+    return (f"Neither listing states its storage capacity, so I can't verify which holds more. "
+            f"For an overall pick using the available listing data, {_recommendation(products, fallback_priority, confirmed)} "
+            f"Please confirm storage capacity before buying. {details}.")
 
 
 def _weight_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
@@ -318,6 +379,7 @@ def _rating_answer(question: str, products: Sequence[Mapping[str, Any]]) -> str:
 
 def _recommendation(products: Sequence[Mapping[str, Any]], priority: str, confirmed: bool) -> str:
     summary = _summary(products)
+    names = [_name(product, index) for index, product in enumerate(products)]
     try:
         shopping_comparison = importlib.import_module(".shopping_comparison", __package__)
     except ModuleNotFoundError as error:
@@ -328,8 +390,8 @@ def _recommendation(products: Sequence[Mapping[str, Any]], priority: str, confir
         rows = [row for row in shopping_comparison.comparison_rows(products, confirmed=confirmed)
                 if any(term.casefold() in " ".join(str(v) for v in row.values()).casefold()
                        for term in shopping_comparison.SPEC_FOCUSES[priority])]
-        evidence = " | ".join(f"{row['Detail']}: Option 1 — {row['Option 1']}; Option 2 — {row['Option 2']}" for row in rows)
-        return f"For {priority.lower()}, the supplied evidence cannot establish a winner. " + (evidence or "No matching details were returned.")
+        evidence = " | ".join(f"{row['Detail']}: {names[0]} — {row['Option 1']}; {names[1]} — {row['Option 2']}" for row in rows)
+        return f"For {priority.lower()}, I can't identify a supported winner because specifications aren't scored. " + (evidence or "No matching details were returned.")
     if priority in {"Lower price", "Balanced value", "Price-focused value", "Rating-focused value"}:
         issue = _price_issue(products)
         if issue:
@@ -344,11 +406,12 @@ def _recommendation(products: Sequence[Mapping[str, Any]], priority: str, confir
         return "I can’t recommend for this comparison: " + str(error) + " " + summary
     winner = result.get("winner_index")
     explanation = str(result.get("explanation") or "No explanation was returned.")
-    scores = str(result.get("score_text") or "")
-    score_detail = "" if not scores or scores in explanation else " " + scores
+    explanation = _named_options(explanation, products)
+    scores = _named_options(str(result.get("score_text") or ""), products)
     if type(winner) is not int or winner not in (0, 1):
-        return f"No supported winner: {explanation}{score_detail} {summary}"
-    return f"My comparison-based opinion: {_name(products[winner], winner)} is the pick for {priority.lower()}. {explanation}{score_detail} This is not a guarantee of quality or suitability. {summary}"
+        return f"I can't identify a clear winner for {priority.lower()} from these listings. {explanation}"
+    score_detail = f" Pair scores: {scores}." if scores and scores not in explanation else ""
+    return f"I'd recommend {_name(products[winner], winner)} for {priority.lower()} because {explanation}{score_detail} This is based on the supplied listing values, not a guarantee of quality or suitability."
 
 
 def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]], priority: str = "Balanced value", history: Sequence[Mapping[str, Any]] | None = None, *, confirmed: bool = False) -> str:
@@ -381,6 +444,8 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     if (re.search(r"\b(?:ratings?|rated)\b", text)
             and re.search(r"\b(?:higher|highest|lower|lowest|better|more|less|compare|which|what)\b", text)):
         return _rating_answer(text, products)
+    if re.search(r"\b(?:storage|capacity|ssd|hard ?drive|disk space|rom)\b", text):
+        return _storage_answer(products, priority, confirmed)
     if re.search(r"\b(?:gaming|games|gamer|graphics|gpu|cpu|processor|ram|memory|refresh rate)\b", text):
         return _gaming_answer(text, products)
     if re.search(r"\b(?:cons|downside|disadvantage|risk|weakness|drawback)s?\b", text):
