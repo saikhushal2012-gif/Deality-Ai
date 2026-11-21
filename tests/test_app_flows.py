@@ -395,6 +395,26 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertNotIn("Option 1", answer)
         self.model.assert_not_called()
 
+    def test_camera_question_uses_local_specs_with_gemini_configured(self):
+        iphone = product("i", "Apple iPhone 18 Pro", "Apple", "https://apple.example/iphone",
+                         category="Smartphone", specifications={
+                             "Rear camera": "50 MP main, 12 MP ultra-wide, 10 MP telephoto with 5x optical zoom and OIS",
+                         })
+        pixel = product("p", "Google Pixel 11 Pro XL", "Google", "https://google.example/pixel",
+                        category="Smartphone", specifications={
+                            "Rear camera": "48 MP main, 12 MP ultra-wide",
+                        })
+        self.search.side_effect = lambda query: {"iphone": [iphone], "pixel": [pixel]}.get(query, [])
+        self.query(1, "iphone")
+        self.query(2, "pixel")
+        self.click("Compare selected products →")
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
+            self.ask("Which has the better camera system?")
+        answer = self.at.session_state["shopping_chat"][-1]["content"]
+        self.assertIn("Apple iPhone 18 Pro has the more versatile camera system", answer)
+        self.assertIn("5x optical zoom", answer)
+        self.model.assert_not_called()
+
     def test_search_error_clears_previous_comparison_without_leaking(self):
         self.load_watches()
         self.search.side_effect = SerpApiError("Search quota reached")

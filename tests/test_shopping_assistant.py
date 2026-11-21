@@ -223,6 +223,35 @@ class ShoppingAssistantTests(unittest.TestCase):
         self.assertNotIn("Option 1", answer)
         self.assertNotIn("Option 2", answer)
 
+    def test_camera_question_compares_listed_system_features_and_explains_advantage(self):
+        products = [
+            {"name": "Apple iPhone 18 Pro", "category": "Smartphone", "specifications": {
+                "Rear camera": "50 MP main, 12 MP ultra-wide, 10 MP telephoto with 5x optical zoom and OIS",
+                "Video": "4K video",
+            }},
+            {"name": "Google Pixel 11 Pro XL", "category": "Smartphone", "specifications": {
+                "Rear camera": "48 MP main, 12 MP ultra-wide", "Video": "4K video",
+            }},
+        ]
+        answer = answer_shopping_question("Which has the better camera system?", products)
+        self.assertIn("Apple iPhone 18 Pro has the more versatile camera system", answer)
+        self.assertIn("5x optical zoom", answer)
+        self.assertIn("OIS", answer)
+        self.assertIn("3 more explicitly listed", answer)
+        self.assertIn("reduce blur from hand movement", answer)
+        self.assertIn("not guaranteed better-looking photos", answer)
+
+    def test_camera_question_does_not_treat_review_count_as_camera_spec(self):
+        products = [
+            {"name": "Apple iPhone 18 Pro", "category": "Smartphone",
+             "features": ["Quality camera (198 user reviews)"]},
+            {"name": "Google Pixel 11 Pro XL", "category": "Smartphone",
+             "features": ["Quality camera (89 user reviews)"]},
+        ]
+        answer = answer_shopping_question("Which phone has the better camera?", products)
+        self.assertIn("can't fairly call either camera better", answer)
+        self.assertIn("review counts don't describe camera hardware", answer)
+
     def test_what_do_you_think_followup_keeps_the_gaming_question_context(self):
         products = [
             {"name": "Acer Nitro Gaming Laptop", "specifications": {"GPU": "RTX 4060"}},

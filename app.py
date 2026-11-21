@@ -20,6 +20,7 @@ from comparewise.sources import SerpApiError, _http_url, _retailer_url, _shoppin
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 st.set_page_config(page_title="Deality AI", page_icon="✦", layout="wide", initial_sidebar_state="collapsed")
+ASSISTANT_AVATAR = str(Path(__file__).resolve().parent / "assets" / "deality-smile.svg")
 
 st.markdown("""
 <style>
@@ -149,7 +150,7 @@ _RULE_QUESTION = re.compile(
     r"\b(?:cheaper|cheapest|more expensive|most expensive|pricier|costs? more|costs? less|"
     r"lower price|lowest price|higher price|highest price|price only|budget|under|below|"
     r"less than|maximum|max|up to|weight|weigh|heavy|heavier|heaviest|light|lighter|lightest|"
-    r"ratings?|rated|storage|capacity|ssd|hard ?drive|disk space|rom)\b",
+    r"ratings?|rated|camera|cameras|photograph|photography|photos?|selfies?|storage|capacity|ssd|hard ?drive|disk space|rom)\b",
     re.I,
 )
 
@@ -362,7 +363,8 @@ def render_assistant(priority: str) -> None:
                 ])
         with st.container(height=240, border=True):
             for message_index, message in enumerate(st.session_state.shopping_chat):
-                with st.chat_message(message["role"]):
+                avatar = ASSISTANT_AVATAR if message["role"] == "assistant" else None
+                with st.chat_message(message["role"], avatar=avatar):
                     st.text(message["content"])
                     previous_question = next((entry["content"] for entry in reversed(st.session_state.shopping_chat[:message_index])
                                               if entry["role"] == "user"), "")

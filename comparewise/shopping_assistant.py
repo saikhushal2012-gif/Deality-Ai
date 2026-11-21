@@ -169,6 +169,82 @@ def _feature_evidence(question: str, products: Sequence[Mapping[str, Any]]) -> s
 _CAPACITY = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?)\s*(TB|GB)\b", re.I)
 _STORAGE_CONTEXT = re.compile(r"\b(?:storage|ssd|hdd|hard ?drive|disk|rom|flash storage)\b", re.I)
 _PHONE_CONTEXT = re.compile(r"\b(?:phone|smartphone|iphone|pixel|galaxy|ipad|tablet)\b", re.I)
+_CAMERA_TERMS = re.compile(r"\b(?:camera|cameras|photograph|photography|photos?|selfie|sensor|lens|lenses|megapixels?|zoom|aperture|ois|stabilization|4k|8k|hdr)\b", re.I)
+_CAMERA_SPEC_SIGNAL = re.compile(
+    r"\b\d+(?:\.\d+)?\s*(?:mp|megapixels?|x(?:\s+optical)?|k|mm|f/)\b|"
+    r"\b(?:telephoto|ultra[ -]?wide|macro|optical zoom|digital zoom|ois|image stabilization|"
+    r"sensor.shift|periscope|variable aperture|dual|triple|quad)\b", re.I,
+)
+_CAMERA_CAPABILITIES = (
+    ("telephoto lens", re.compile(r"\btelephoto\b", re.I)),
+    ("optical zoom", re.compile(r"\boptical zoom\b", re.I)),
+    ("ultra-wide lens", re.compile(r"\bultra[ -]?wide\b", re.I)),
+    ("macro lens", re.compile(r"\bmacro\b", re.I)),
+    ("image stabilization", re.compile(r"\b(?:ois|optical image stabilization|image stabilization|sensor.shift)\b", re.I)),
+    ("periscope lens", re.compile(r"\bperiscope\b", re.I)),
+)
+
+
+def _camera_details(product: Mapping[str, Any]) -> list[str]:
+    specs = product.get("specifications")
+    candidates = []
+    if isinstance(specs, Mapping):
+        candidates.extend(f"{key}: {value}" for key, value in specs.items() if value is not None)
+    features = product.get("features")
+    if isinstance(features, (list, tuple)):
+        candidates.extend(str(value) for value in features if value is not None)
+    description = product.get("description")
+    if isinstance(description, str):
+        candidates.extend(re.split(r"(?<=[.!?;])\s+", description))
+
+    details = []
+    for candidate in candidates:
+        candidate = re.sub(r"\s*\(?\d[\d,]*\s+(?:user\s+)?reviews?\)?", "", str(candidate), flags=re.I).strip(" .;,")
+        if (_CAMERA_TERMS.search(candidate) and _CAMERA_SPEC_SIGNAL.search(candidate)
+                and candidate.casefold() not in {detail.casefold() for detail in details}):
+            details.append(candidate[:240])
+    return details[:5]
+
+
+def _camera_answer(products: Sequence[Mapping[str, Any]]) -> str:
+    names = [_name(product, index) for index, product in enumerate(products)]
+    details = [_camera_details(product) for product in products]
+    detail_text = ["; ".join(items) if items else "no concrete camera specs listed" for items in details]
+    evidence = f"{names[0]}: {detail_text[0]} | {names[1]}: {detail_text[1]}"
+    if not any(details):
+        return (f"I can't fairly call either camera better from these listings. Neither gives concrete camera specs; "
+                f"generic camera labels and review counts don't describe camera hardware. {evidence}.")
+    if not all(details):
+        return (f"I can't fairly rank these cameras because only one listing provides concrete camera specs. "
+                f"{evidence}. Check the other product's camera details for a like-for-like comparison.")
+
+    capability_sets = [
+        {label for label, pattern in _CAMERA_CAPABILITIES if pattern.search(" ".join(items))}
+        for items in details
+    ]
+    if len(capability_sets[0]) != len(capability_sets[1]):
+        winner = 0 if len(capability_sets[0]) > len(capability_sets[1]) else 1
+        other = 1 - winner
+        added = capability_sets[winner] - capability_sets[other]
+        if added:
+            reasons = {
+                "telephoto lens": "a dedicated telephoto lens can frame distant subjects",
+                "optical zoom": "optical zoom can retain more detail at a distance than digital cropping",
+                "ultra-wide lens": "an ultra-wide lens can fit more of a scene into the frame",
+                "macro lens": "a macro lens is designed for close-up subjects",
+                "image stabilization": "stabilization can help reduce blur from hand movement",
+                "periscope lens": "a periscope lens supports longer-range zoom designs",
+            }
+            explanation = "; ".join(reasons[label] for label in sorted(added))
+            difference = abs(len(capability_sets[0]) - len(capability_sets[1]))
+            return (f"Based on the listed hardware, {names[winner]} has the more versatile camera system on paper: "
+                    f"it lists {len(capability_sets[winner])} of these camera capabilities versus "
+                    f"{len(capability_sets[other])} for {names[other]} ({difference} more explicitly listed). "
+                    f"In particular, {explanation}. {evidence}. These specs suggest more shooting flexibility, "
+                    "not guaranteed better-looking photos.")
+
+    return (f"Both listings provide camera details, but they don't establish a clear overall winner. "
+            f"{evidence}. Megapixel counts or video resolution alone don't prove which takes better photos.")
 
 
 def _storage_value(product: Mapping[str, Any]) -> tuple[float, str] | None:
@@ -444,6 +520,8 @@ def answer_shopping_question(question: str, products: Sequence[Mapping[str, Any]
     if (re.search(r"\b(?:ratings?|rated)\b", text)
             and re.search(r"\b(?:higher|highest|lower|lowest|better|more|less|compare|which|what)\b", text)):
         return _rating_answer(text, products)
+    if re.search(r"\b(?:camera|cameras|photograph|photography|photos?|selfies?)\b", text):
+        return _camera_answer(products)
     if re.search(r"\b(?:storage|capacity|ssd|hard ?drive|disk space|rom)\b", text):
         return _storage_answer(products, priority, confirmed)
     if re.search(r"\b(?:gaming|games|gamer|graphics|gpu|cpu|processor|ram|memory|refresh rate)\b", text):
