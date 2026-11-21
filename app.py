@@ -238,6 +238,14 @@ def render_home() -> None:
         with column:
             st.markdown(f'<div class="how-card"><div class="step-number">{number}</div><h3>{title}</h3><p class="muted">{copy}</p></div>', unsafe_allow_html=True)
     st.write("")
+    st.subheader("A clearer decision before you spend")
+    st.write("Deality AI brings offers together, compares the information retailers actually provide, and makes trade-offs easier to see. It does not decide what you can afford or promise that you will save money.")
+    metric_columns = st.columns(3)
+    metric_columns[0].metric("Offers per comparison", "2–5")
+    metric_columns[1].metric("Offline experiment accuracy", "52.1%")
+    metric_columns[2].metric("Shopper savings measured", "Not yet")
+    st.caption("The 52.1% result and 15/29 top-choice matches came from a small, user-provided, offline ML experiment. That model does not power live recommendations; the results are not a measure of real-world accuracy.")
+    st.write("")
     _, center, _ = st.columns([1, 1, 1])
     with center:
         if st.button("Start comparing →", type="primary", width="stretch"):
@@ -308,8 +316,10 @@ def render_assistant(priority: str) -> None:
                 ])
             if st.session_state.shopping_goal:
                 st.caption(f"Current plan: {st.session_state.shopping_goal} · {st.session_state.shopping_priority}")
-        elif api_key:
+        elif api_key and products:
             st.caption("Open-ended answers use Gemini with selected listing details; direct comparisons use local rules.")
+        elif api_key:
+            st.caption("Your question and optional shopping goal/budget go to Google AI. No product listings are sent until you compare.")
         else:
             st.caption("Listing-rule answers are available without an API key.")
 
@@ -321,7 +331,22 @@ def render_assistant(priority: str) -> None:
             if not question:
                 _notice("Enter a question for Deality AI.", "error")
             elif not 2 <= len(products) <= 5:
-                answer = "Add at least two product listings first. I'll then compare their prices and available details against your shopping goal."
+                try:
+                    if api_key:
+                        with st.spinner("Thinking through your shopping goal..."):
+                            answer = gemini_assistant.request_shopping_guidance(
+                                question, st.session_state.shopping_goal,
+                                st.session_state.shopping_budget, priority,
+                                st.session_state.shopping_chat, api_key=api_key,
+                            )
+                    else:
+                        goal = st.session_state.shopping_goal or "shopping needs"
+                        answer = (f"I can help with {goal.lower()}. Add at least two listings for a "
+                                  "grounded comparison, or set GEMINI_API_KEY for open-ended shopping guidance.")
+                except (gemini_assistant.ModelAssistantError, ValueError):
+                    goal = st.session_state.shopping_goal or "shopping needs"
+                    answer = (f"I can help with {goal.lower()}, but Gemini is unavailable right now. "
+                              "Add at least two listings for a grounded local comparison.")
                 st.session_state.shopping_chat.extend([
                     {"role": "user", "content": question},
                     {"role": "assistant", "content": answer},

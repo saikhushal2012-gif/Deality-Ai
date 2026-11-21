@@ -75,6 +75,23 @@ class GeminiAssistantTests(unittest.TestCase):
             assistant.request_model_answer("Which is better?", incompatible, confirmed=True)
         self.post.assert_not_called()
 
+    def test_prelisting_guidance_sends_only_bounded_shopping_profile(self):
+        answer = assistant.request_shopping_guidance(
+            "What should I look for in a gaming laptop?", "Laptop for gaming",
+            "$1,200", "Performance & components",
+            [{"role": "user", "content": "I mostly play new games."}],
+        )
+        self.assertEqual(answer, "Option 1 is the better fit.")
+        body = self.post.call_args.kwargs["json"]
+        context = json.loads(body["contents"][-1]["parts"][0]["text"])
+        self.assertEqual(context["shopping_goal"], "Laptop for gaming")
+        self.assertEqual(context["budget"], "$1,200")
+        self.assertEqual(context["question"], "What should I look for in a gaming laptop?")
+        serialized = json.dumps(body)
+        self.assertNotIn("shop.example", serialized)
+        self.assertNotIn("img.example", serialized)
+        self.assertNotIn("test-gemini-key", serialized)
+
     def test_provider_errors_are_safe_and_responses_are_validated(self):
         self.post.return_value = response(status=403)
         with self.assertRaisesRegex(assistant.ModelAssistantError, "rejected the key or request") as caught:

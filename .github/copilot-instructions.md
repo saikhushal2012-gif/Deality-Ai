@@ -8,6 +8,6 @@
 - Use Deality AI branding consistently and preserve the blue/purple/cyan/pink gradient interface.
 
 ## Privacy and validation
-- Hosted Gemini chat is approved for contextual shopping answers; the numeric recommendation score remains deterministic. Send only bounded selected-listing fields, the question, and recent conversation; omit product/image URLs. Keep answers grounded in unverified listing evidence and never invent facts.
-- Load credentials from local `.env` or Streamlit Cloud Secrets; never print, expose or commit API keys. Search phrases go to SerpApi. When configured, bounded questions, chat history and listing details go to Google AI. Comparisons, cached results and chat remain in the Streamlit session without app-side persistence; provider data policies apply.
+- Hosted Gemini chat is approved for shopping guidance and contextual listing answers; the numeric recommendation score remains deterministic. Before listings exist, send only bounded goal/budget/priority context, the question, and recent conversation. For comparison chat, include only bounded selected-listing fields; omit product/image URLs. Keep listing answers grounded in unverified evidence and never invent facts.
+- Load credentials from local `.env` or Streamlit Cloud Secrets; never print, expose or commit API keys. Search phrases go to SerpApi. When configured, bounded questions and chat history go to Google AI; comparison chat additionally sends selected listing details. Comparisons, cached results and chat remain in the Streamlit session without app-side persistence; provider data policies apply.
 - Validate changes with `python -m unittest discover -s tests` and `python -m compileall -q app.py comparewise tests`.

@@ -96,6 +96,20 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertEqual(intake_app.session_state["shopping_priority"], "Performance & components")
         self.assertIn("Add at least two listings", intake_app.session_state["shopping_chat"][-1]["content"])
 
+    def test_prelisting_question_uses_gemini_shopping_guidance(self):
+        guidance_app = AppTest.from_file(str(APP_PATH)).run(timeout=30)
+        self.assertFalse(guidance_app.exception)
+        with patch.dict("os.environ", {"GEMINI_API_KEY": "test-gemini-key"}):
+            with patch("comparewise.gemini_assistant.request_shopping_guidance",
+                       return_value="Check GPU, RAM, and battery life.") as guidance:
+                widget(guidance_app.text_input, "Your question").set_value("What should I look for?")
+                widget(guidance_app.button, "Send").click().run(timeout=30)
+        self.assertFalse(guidance_app.exception)
+        self.assertIn("Check GPU", guidance_app.session_state["shopping_chat"][-1]["content"])
+        guidance.assert_called_once()
+        self.assertEqual(guidance.call_args.args[0], "What should I look for?")
+        self.assertEqual(guidance.call_args.kwargs["api_key"], "test-gemini-key")
+
     def load_watches(self):
         self.query(1, "first watch")
         self.query(2, "second watch")
@@ -137,7 +151,7 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.load_watches()
         self.assertFalse(any("Deality Match" in item.value for item in self.at.subheader))
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
-        self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
+        self.assertTrue(any(item.label == "Your question" for item in self.at.text_input))
 
     def test_three_products_can_be_searched_compared_and_recommended(self):
         self.select("Products to compare", 3)

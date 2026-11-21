@@ -30,7 +30,7 @@ A **separate offline synthetic experiment** is stored in `data/synthetic_prefere
 
 ## AI assistant and privacy
 
-When Gemini is configured, shopping questions and bounded conversation history, plus selected listing fields, are sent to Google AI. Product URLs, image URLs, and unrelated listing fields are excluded. Set `GEMINI_API_KEY` in local `.env` or Streamlit Cloud Secrets. The free tier has usage limits and its data terms differ from paid tiers; check Google's current policies before sending sensitive information. Product selections, cache, comparison state, and chat are kept in the active Streamlit session and are not written to a Deality database. **Clear searches, comparison and chat** removes the session's current comparison data.
+When Gemini is configured, pre-listing guidance sends the question, optional shopping goal/budget, selected priority, and bounded chat history to Google AI. Comparison chat additionally sends bounded selected-listing fields; product URLs, image URLs, and unrelated listing fields are excluded. Set `GEMINI_API_KEY` in local `.env` or Streamlit Cloud Secrets. The free tier has usage limits and its data terms differ from paid tiers; check Google's current policies before sending sensitive information. Product selections, cache, comparison state, and chat are kept in the active Streamlit session and are not written to a Deality database. **Clear searches, comparison and chat** removes the session's current comparison data.
 
 ## Tests and verification
 
