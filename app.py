@@ -56,6 +56,9 @@ input,textarea,[data-baseweb="select"] > div {background:#131a2a !important;colo
 [data-testid="stVerticalBlockBorderWrapper"] > div {border-color:rgba(151,173,255,.2) !important;border-radius:16px !important;}
 [data-testid="stDataFrame"] {border:1px solid rgba(151,173,255,.18);border-radius:14px;overflow:hidden;}
 .footer {margin-top:2rem;padding-top:1rem;border-top:1px solid rgba(151,173,255,.14);color:#94a1ba;font-size:.82rem;text-align:center;}
+[data-testid="stPopover"] {position:fixed !important;right:24px;bottom:22px;z-index:9999;width:auto;}
+[data-testid="stPopover"] > button {min-height:3rem;padding:0 1.1rem;border-radius:999px !important;box-shadow:0 8px 26px rgba(0,0,0,.38);}
+[data-testid="stPopoverBody"] {width:min(390px,calc(100vw - 32px)) !important;max-height:78vh;overflow-y:auto;}
 @media(max-width:700px) { .block-container {padding:1rem .85rem 2rem;} .hero {border-radius:20px;} .product-image {height:180px;} .stButton > button,.stFormSubmitButton > button {width:100%;} }
 </style>
 """, unsafe_allow_html=True)
@@ -65,6 +68,8 @@ for key, default in (
     *((f"results_{index}", []) for index in range(1, 6)),
     *((f"manual_{index}", None) for index in range(1, 6)),
     ("shopping_chat", []),
+    ("shopping_goal", ""),
+    ("shopping_budget", ""),
     ("current_pair", None),
 ):
     if key not in st.session_state:
@@ -270,62 +275,97 @@ def render_assistant(priority: str) -> None:
     products = comparison["products"] if comparison else []
     confirmed = bool(comparison and comparison["confirmed"])
     api_key = _gemini_api_key()
-    st.subheader("Ask Deality AI")
-    if api_key:
-        st.caption("Gemini handles open-ended questions; your question and selected listing details are sent to Google AI.")
-    else:
-        st.caption("Set GEMINI_API_KEY to enable online answers. Listing-rule answers work without it.")
-    with st.form("shopping_assistant_chat", clear_on_submit=True):
-        prompt = st.text_input("Your requirements", placeholder="e.g. Which is cheaper, or what fits my budget?")
-        send = st.form_submit_button("Ask Deality AI", type="primary", width="stretch")
-    if send:
-        question = prompt.strip()
-        if not question:
-            _notice("Enter a question about the selected listings.", "error")
-        elif not 2 <= len(products) <= 5:
-            _notice("Compare the selected products first.", "error")
+    with st.popover("Chat with Deality AI", icon=":material/chat:", type="primary", width=380):
+        st.subheader("Your shopping assistant")
+        if not products:
+            st.caption("Tell me what you're shopping for. I'll help you set a priority before you compare offers.")
+            with st.form("shopping_intake", clear_on_submit=False):
+                goal = st.selectbox(
+                    "What are you shopping for?",
+                    ("Laptop for gaming", "Laptop for school or work", "Something else"),
+                    key="shopping_goal_input",
+                )
+                budget = st.text_input("Budget (optional)", key="shopping_budget_input", placeholder="e.g. $1,200")
+                focus = st.selectbox(
+                    "What matters most?",
+                    ("Balanced value", "Lower price", "Higher customer rating", "Performance & components"),
+                    key="shopping_focus_input",
+                )
+                intake_sent = st.form_submit_button("Set my shopping goal", type="primary", width="stretch")
+            if intake_sent:
+                st.session_state.shopping_goal = goal
+                st.session_state.shopping_budget = budget.strip()
+                st.session_state.shopping_priority = focus
+                details = f" with a budget of {budget.strip()}" if budget.strip() else ""
+                guidance = (
+                    "For gaming, we'll look for listed GPU, CPU, and memory details; missing specs won't be guessed."
+                    if goal == "Laptop for gaming" else
+                    "We'll compare the listings using your selected priority and the information they provide."
+                )
+                st.session_state.shopping_chat.extend([
+                    {"role": "user", "content": f"I'm shopping for {goal.lower()}{details}. My priority is {focus}."},
+                    {"role": "assistant", "content": f"Got it. {guidance} Add at least two listings to get a comparison."},
+                ])
+            if st.session_state.shopping_goal:
+                st.caption(f"Current plan: {st.session_state.shopping_goal} · {st.session_state.shopping_priority}")
+        elif api_key:
+            st.caption("Open-ended answers use Gemini with selected listing details; direct comparisons use local rules.")
         else:
-            try:
-                if api_key and not _RULE_QUESTION.search(question):
-                    with st.spinner("Thinking through your question..."):
-                        answer = gemini_assistant.request_model_answer(
-                            question, products, priority, st.session_state.shopping_chat,
-                            confirmed=confirmed, api_key=api_key,
-                        )
-                else:
+            st.caption("Listing-rule answers are available without an API key.")
+
+        with st.form("shopping_assistant_chat", clear_on_submit=True):
+            prompt = st.text_input("Your question", placeholder="e.g. Which has the higher rating?")
+            send = st.form_submit_button("Send", type="primary", width="stretch")
+        if send:
+            question = prompt.strip()
+            if not question:
+                _notice("Enter a question for Deality AI.", "error")
+            elif not 2 <= len(products) <= 5:
+                answer = "Add at least two product listings first. I'll then compare their prices and available details against your shopping goal."
+                st.session_state.shopping_chat.extend([
+                    {"role": "user", "content": question},
+                    {"role": "assistant", "content": answer},
+                ])
+            else:
+                try:
+                    if api_key and not _RULE_QUESTION.search(question):
+                        with st.spinner("Thinking through your question..."):
+                            answer = gemini_assistant.request_model_answer(
+                                question, products, priority, st.session_state.shopping_chat,
+                                confirmed=confirmed, api_key=api_key,
+                            )
+                    else:
+                        answer = _rule_based_answer(question, products, priority,
+                                                    st.session_state.shopping_chat, confirmed)
+                except (gemini_assistant.ModelAssistantError, ValueError):
                     answer = _rule_based_answer(question, products, priority,
                                                 st.session_state.shopping_chat, confirmed)
-            except (gemini_assistant.ModelAssistantError, ValueError):
-                answer = _rule_based_answer(question, products, priority,
-                                            st.session_state.shopping_chat, confirmed)
-            st.session_state.shopping_chat.extend([
-                {"role": "user", "content": question},
-                {"role": "assistant", "content": answer},
-            ])
-    with st.container(height=220, border=True):
-        if not st.session_state.shopping_chat:
-            st.caption("Ask about price, ratings, specifications, or the current recommendation.")
-        for message_index, message in enumerate(st.session_state.shopping_chat):
-            with st.chat_message(message["role"]):
-                st.text(message["content"])
-                previous_question = next((entry["content"] for entry in reversed(st.session_state.shopping_chat[:message_index])
-                                          if entry["role"] == "user"), "")
-                currencies = [str(product.get("currency") or "").strip().upper() for product in products]
-                missing_price_currency = bool(re.search(r"\b(?:cheaper|cheapest|lower price|lowest price|price only|which costs less)\b",
-                                                        previous_question, re.I)) and (
-                    not all(re.fullmatch(r"[A-Z]{3}", currency) for currency in currencies)
-                    or len(set(currencies)) != 1
-                )
-                if message["role"] == "assistant" and (missing_price_currency or any(
-                    phrase in message["content"].casefold()
-                    for phrase in ("not provided", "not returned", "missing or invalid", "different currencies", "details weren't provided", "couldn't find that detail", "no matching detail was returned", "units or format aren't clear")
-                )):
-                    for product_index, product in enumerate(products):
-                        url = _retailer_url(product.get("url")) or _shopping_url(product.get("shopping_url"))
-                        if url:
-                            name = product.get("name") or f"Option {product_index + 1}"
-                            st.link_button(f"Open {name} listing", url,
-                                           key=f"chat-listing-{message_index}-{product_index}")
+                st.session_state.shopping_chat.extend([
+                    {"role": "user", "content": question},
+                    {"role": "assistant", "content": answer},
+                ])
+        with st.container(height=240, border=True):
+            for message_index, message in enumerate(st.session_state.shopping_chat):
+                with st.chat_message(message["role"]):
+                    st.text(message["content"])
+                    previous_question = next((entry["content"] for entry in reversed(st.session_state.shopping_chat[:message_index])
+                                              if entry["role"] == "user"), "")
+                    currencies = [str(product.get("currency") or "").strip().upper() for product in products]
+                    missing_price_currency = bool(re.search(r"\b(?:cheaper|cheapest|lower price|lowest price|price only|which costs less)\b",
+                                                            previous_question, re.I)) and (
+                        not all(re.fullmatch(r"[A-Z]{3}", currency) for currency in currencies)
+                        or len(set(currencies)) != 1
+                    )
+                    if products and message["role"] == "assistant" and (missing_price_currency or any(
+                        phrase in message["content"].casefold()
+                        for phrase in ("not provided", "not returned", "missing or invalid", "different currencies", "details weren't provided", "couldn't find that detail", "no matching detail was returned", "units or format aren't clear")
+                    )):
+                        for product_index, product in enumerate(products):
+                            url = _retailer_url(product.get("url")) or _shopping_url(product.get("shopping_url"))
+                            if url:
+                                name = product.get("name") or f"Option {product_index + 1}"
+                                st.link_button(f"Open {name} listing", url,
+                                               key=f"chat-listing-{message_index}-{product_index}")
 
 
 def render_comparison() -> None:
@@ -478,7 +518,6 @@ def render_comparison() -> None:
     if not comparison:
         st.button("Clear searches, comparison and chat", on_click=_clear)
         _notice("Search for both products, select distinct results, and compare them.")
-        render_assistant(priority)
         st.markdown('<div class="footer">This project is a prototype and is not financial advice.<br>Need help? Call <a href="tel:+16097514039">609-751-4039</a>.</div>', unsafe_allow_html=True)
         return
     products = comparison["products"]
@@ -491,7 +530,6 @@ def render_comparison() -> None:
         title = products[winner].get("name") or f"Option {winner + 1}"
         st.markdown(f'<div class="recommendation"><div class="eyebrow">DEALITY AI · {escape(priority.upper())}</div><h3>{escape(decision_label)}: {escape(str(title))}</h3><p>{escape(explanation)}</p><p>{escape(summary["score_text"])}</p></div>', unsafe_allow_html=True)
         st.caption("Based on your priority, returned listing statistics, and customer feedback when available.")
-        render_assistant(priority)
     rows = comparison_rows(products, confirmed=confirmed)
     if priority in SPEC_FOCUSES:
         focused = [row for row in rows if any(word in " ".join(row.values()).casefold() for word in SPEC_FOCUSES[priority])]
@@ -514,3 +552,4 @@ if st.session_state.page == "home":
     render_home()
 else:
     render_comparison()
+render_assistant(st.session_state.get("shopping_priority", "Balanced value"))

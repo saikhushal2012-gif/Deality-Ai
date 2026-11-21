@@ -80,8 +80,21 @@ class ShoppingAppFlowTests(unittest.TestCase):
         self.assertFalse(self.at.exception)
 
     def ask(self, question):
-        widget(self.at.text_input, "Your requirements").set_value(question)
-        self.click("Ask Deality AI")
+        widget(self.at.text_input, "Your question").set_value(question)
+        self.click("Send")
+
+    def test_home_intake_saves_shopping_goal_and_recommendation_priority(self):
+        intake_app = AppTest.from_file(str(APP_PATH)).run(timeout=30)
+        self.assertFalse(intake_app.exception)
+        widget(intake_app.selectbox, "What are you shopping for?").set_value("Laptop for gaming")
+        widget(intake_app.text_input, "Budget (optional)").set_value("$1,200")
+        widget(intake_app.selectbox, "What matters most?").set_value("Performance & components")
+        widget(intake_app.button, "Set my shopping goal").click().run(timeout=30)
+        self.assertFalse(intake_app.exception)
+        self.assertEqual(intake_app.session_state["shopping_goal"], "Laptop for gaming")
+        self.assertEqual(intake_app.session_state["shopping_budget"], "$1,200")
+        self.assertEqual(intake_app.session_state["shopping_priority"], "Performance & components")
+        self.assertIn("Add at least two listings", intake_app.session_state["shopping_chat"][-1]["content"])
 
     def load_watches(self):
         self.query(1, "first watch")
@@ -268,7 +281,7 @@ class ShoppingAppFlowTests(unittest.TestCase):
     def test_comparison_page_has_no_external_assistant_selector(self):
         self.load_watches()
         self.assertFalse(any(item.label == "AI assistant" for item in self.at.selectbox))
-        self.assertTrue(any(item.label == "Your requirements" for item in self.at.text_input))
+        self.assertTrue(any(item.label == "Your question" for item in self.at.text_input))
 
     def test_gemini_answers_open_ended_gaming_question_when_configured(self):
         self.query(1, "first laptop")
